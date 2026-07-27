@@ -1181,6 +1181,13 @@ window.selectAllBulkDelete = function(selectAll) {
 window.updateBulkDeleteCount = function() {
   const countSpan = document.getElementById('bulk-delete-count');
   if (countSpan) countSpan.textContent = `(${bulkDeleteSelectedSongs.size})`;
+  const submitButton = document.getElementById('bulk-delete-submit-btn');
+  if (submitButton) {
+    const hasSelection = bulkDeleteSelectedSongs.size > 0;
+    submitButton.disabled = !hasSelection;
+    submitButton.style.opacity = hasSelection ? '1' : '.5';
+    submitButton.style.cursor = hasSelection ? 'pointer' : 'not-allowed';
+  }
 };
 
 window.submitBulkDelete = async function() {
@@ -1198,23 +1205,26 @@ window.submitBulkDelete = async function() {
 
   try {
     if (bulkDeleteMode === 'playlist') {
-      await fetch(`/api/playlists/${state.currentPlaylistId}/songs`, {
+      const res = await fetch(`/api/playlists/${state.currentPlaylistId}/songs`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ songIds: Array.from(bulkDeleteSelectedSongs) })
       });
+      if (!res.ok) throw new Error('Playlist update failed');
       await fetchPlaylists();
       setTimeout(() => openPlaylist(state.currentPlaylistId), 100);
       alert(`Berjaya membuang ${count} lagu dari playlist!`);
     } else {
-      await fetch('/api/songs/bulk-delete', {
+      const res = await fetch('/api/songs/bulk-delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ songIds: Array.from(bulkDeleteSelectedSongs) })
       });
+      const data = await res.json();
+      if (!res.ok && res.status !== 207) throw new Error(data.error || 'Delete failed');
       await fetchSongs();
       await fetchPlaylists();
-      alert(`Berjaya memadam ${count} lagu dari simpanan laptop!`);
+      alert(data.message || `Berjaya memadam ${count} lagu dari simpanan laptop!`);
     }
 
     document.getElementById('bulk-delete-modal').style.display = 'none';
