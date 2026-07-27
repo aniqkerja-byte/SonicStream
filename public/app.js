@@ -760,28 +760,91 @@ function initUploadHandlers() {
 }
 
 async function uploadFiles(files) {
-  const formData = new FormData();
-  for (let i = 0; i < files.length; i++) {
-    formData.append('songs', files[i]);
+  const selectedFiles = Array.from(files);
+  if (selectedFiles.length === 0) return;
+
+  elements.uploadProgressList.innerHTML = `
+    <div class="upload-progress-summary" id="upload-progress-summary">
+      <span><i class="fa-solid fa-circle-notch fa-spin"></i> Menyediakan upload...</span>
+      <strong id="upload-progress-total">0 / ${selectedFiles.length}</strong>
+    </div>
+    <div class="upload-progress-items" id="upload-progress-items">
+      ${selectedFiles.map((file, index) => `
+        <div class="upload-progress-item" id="upload-item-${index}">
+          <div class="upload-file-icon"><i class="fa-solid fa-music"></i></div>
+          <div class="upload-file-details">
+            <div class="upload-file-heading">
+              <span class="upload-file-name">${escapeHtml(file.name)}</span>
+              <span class="upload-file-status">Menunggu</span>
+            </div>
+            <div class="upload-progress-track"><div class="upload-progress-fill"></div></div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  let completed = 0;
+  let failed = 0;
+
+  for (let index = 0; index < selectedFiles.length; index++) {
+    const file = selectedFiles[index];
+    const item = document.getElementById(`upload-item-${index}`);
+    const status = item.querySelector('.upload-file-status');
+    const progress = item.querySelector('.upload-progress-fill');
+    item.classList.add('uploading');
+    status.textContent = 'Memuat naik...';
+
+    try {
+      await uploadSingleFile(file, progress, status);
+      completed++;
+      item.classList.remove('uploading');
+      item.classList.add('uploaded');
+      status.textContent = 'Selesai';
+      progress.style.width = '100%';
+    } catch (error) {
+      failed++;
+      item.classList.remove('uploading');
+      item.classList.add('upload-failed');
+      status.textContent = 'Gagal';
+      console.error(`Upload failed for ${file.name}:`, error);
+    }
+
+    document.getElementById('upload-progress-total').textContent = `${completed + failed} / ${selectedFiles.length}`;
   }
 
-  elements.uploadProgressList.innerHTML = `<div class="loading-state" style="padding:24px; text-align:center;"><i class="fa-solid fa-circle-notch fa-spin"></i><p>Memuat naik ${files.length} lagu ke server laptop...</p></div>`;
+  const summary = document.getElementById('upload-progress-summary');
+  summary.innerHTML = failed === 0
+    ? `<span class="upload-success"><i class="fa-solid fa-circle-check"></i> Semua lagu selesai dimuat naik</span><strong>${completed} / ${selectedFiles.length}</strong>`
+    : `<span class="upload-warning"><i class="fa-solid fa-triangle-exclamation"></i> ${completed} berjaya, ${failed} gagal</span><strong>${completed + failed} / ${selectedFiles.length}</strong>`;
 
-  try {
-    const res = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData
+  await fetchSongs();
+  setTimeout(fetchSongs, 1200);
+  elements.fileInput.value = '';
+}
+
+function uploadSingleFile(file, progressElement, statusElement) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('songs', file);
+
+    xhr.open('POST', '/api/upload');
+    xhr.upload.addEventListener('progress', event => {
+      if (!event.lengthComputable) return;
+      progressElement.style.width = `${Math.round((event.loaded / event.total) * 100)}%`;
+      statusElement.textContent = `${Math.round((event.loaded / event.total) * 100)}%`;
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Upload failed');
-    elements.uploadProgressList.innerHTML = `<div class="empty-state" style="padding:24px; text-align:center; color:var(--spotify-green);"><i class="fa-solid fa-circle-check"></i><p>${data.message}</p></div>`;
-    await fetchSongs();
-    setTimeout(fetchSongs, 1200);
-    elements.fileInput.value = '';
-  } catch (e) {
-    console.error('Upload failed:', e);
-    elements.uploadProgressList.innerHTML = `<div class="empty-state" style="padding:24px; text-align:center; color:var(--text-negative);"><i class="fa-solid fa-triangle-exclamation"></i><p>Gagal memuat naik lagu.</p></div>`;
-  }
+    xhr.addEventListener('load', () => {
+      let data = {};
+      try { data = JSON.parse(xhr.responseText); } catch (error) { /* handled below */ }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+      else reject(new Error(data.error || `Upload failed (${xhr.status})`));
+    });
+    xhr.addEventListener('error', () => reject(new Error('Network error')));
+    xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+    xhr.send(formData);
+  });
 }
 
 // Search & Filter

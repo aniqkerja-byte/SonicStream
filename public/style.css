@@ -825,6 +825,109 @@ body {
   gap: 16px;
 }
 
+.upload-progress-list {
+  margin-top: 24px;
+  text-align: left;
+}
+
+.upload-progress-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  border-radius: var(--radius-subtle);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-subdued);
+  font-size: 13px;
+}
+
+.upload-progress-summary strong {
+  color: var(--text-base);
+  white-space: nowrap;
+}
+
+.upload-progress-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.upload-progress-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-subtle);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.upload-file-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(30, 215, 96, 0.12);
+  color: var(--spotify-green);
+  flex-shrink: 0;
+}
+
+.upload-file-details {
+  min-width: 0;
+  flex: 1;
+}
+
+.upload-file-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.upload-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-base);
+}
+
+.upload-file-status {
+  color: var(--text-subdued);
+  white-space: nowrap;
+}
+
+.upload-progress-track {
+  height: 4px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.upload-progress-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--spotify-green);
+  transition: width 0.15s ease;
+}
+
+.upload-progress-item.uploaded .upload-file-status,
+.upload-success {
+  color: var(--spotify-green);
+}
+
+.upload-progress-item.upload-failed .upload-file-status,
+.upload-warning {
+  color: var(--text-negative);
+}
+
 .upload-icon {
   font-size: 48px;
   color: var(--spotify-green);
