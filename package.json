@@ -1,0 +1,22 @@
+{
+  "name": "sonic-cloud-stream",
+  "version": "1.0.0",
+  "description": "Self-hosted music streaming server with Cloudflare Tunnel support",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "tunnel": "cloudflared tunnel --url http://localhost:3000",
+    "tunnel:domain": "cloudflared tunnel --config cloudflared-config.yml run music-server"
+  },
+  "keywords": ["music", "streaming", "self-hosted", "cloudflare-tunnel"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chokidar": "^3.6.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "music-metadata": "^7.14.0"
+  }
+}

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b" />
+      <stop offset="50%" stop-color="#31104b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8" />
+      <stop offset="50%" stop-color="#c084fc" />
+      <stop offset="100%" stop-color="#f472b6" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="500" height="500" fill="url(#bg)" rx="24" />
+
+  <!-- Decorative circles -->
+  <circle cx="250" cy="250" r="160" fill="none" stroke="url(#accent)" stroke-width="2" opacity="0.25" />
+  <circle cx="250" cy="250" r="110" fill="none" stroke="url(#accent)" stroke-width="3" opacity="0.4" stroke-dasharray="10 8" />
+
+  <!-- Center vinyl disc effect -->
+  <circle cx="250" cy="250" r="75" fill="#090d16" stroke="url(#accent)" stroke-width="4" filter="url(#glow)" />
+
+  <!-- Music Note Icon -->
+  <g transform="translate(250, 250) scale(1.6)" fill="url(#accent)">
+    <path d="M-6, -18 L12, -24 L12, 6 C10.5, 4.8 8.4, 4.2 6, 4.8 C2, 5.8 0, 9 1.2, 12 C2.4, 15 6.4, 16.6 10.4, 15.6 C14, 14.6 16, 12 16, 8 L16, -16 L-6, -10 L-6, 14 C-7.5, 12.8 -9.6, 12.2 -12, 12.8 C-16, 13.8 -18, 17 -16.8, 20 C-15.6, 23 -11.6, 24.6 -7.6, 23.6 C-4, 22.6 -2, 20 -2, 16 L-2, -16 Z" />
+  </g>
+</svg>

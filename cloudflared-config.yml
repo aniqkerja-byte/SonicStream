@@ -1,0 +1,7 @@
+tunnel: 74f11799-f758-497f-884a-371955f3c3ec
+credentials-file: /home/lenovo/.cloudflared/74f11799-f758-497f-884a-371955f3c3ec.json
+
+ingress:
+  - hostname: music.jomtek.my
+    service: http://localhost:3000
+  - service: http_status:404
