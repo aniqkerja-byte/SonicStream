@@ -244,6 +244,8 @@ app.get('/api/stream/:id', (req, res) => {
   const stat = fs.statSync(filePath);
   const fileSize = stat.size;
   const range = req.headers.range;
+  const lastModified = stat.mtime.toUTCString();
+  const etag = `W/"${stat.size}-${Math.floor(stat.mtimeMs)}"`;
 
   const ext = path.extname(song.filename).toLowerCase();
   let contentType = 'audio/mpeg';
@@ -252,16 +254,27 @@ app.get('/api/stream/:id', (req, res) => {
   if (ext === '.wav') contentType = 'audio/wav';
   if (ext === '.ogg') contentType = 'audio/ogg';
 
+  res.set({
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    'Last-Modified': lastModified,
+    ETag: etag,
+    'X-Content-Type-Options': 'nosniff'
+  });
+
   if (range) {
-    const parts = range.replace(/bytes=/, "").split("-");
+    const parts = range.replace(/bytes=/, '').split('-');
     const start = parseInt(parts[0], 10);
-    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    const requestedEnd = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    if (Number.isNaN(start) || start >= fileSize) {
+      return res.status(416).set('Content-Range', `bytes */${fileSize}`).end();
+    }
+    const end = Math.min(requestedEnd, fileSize - 1);
     const chunksize = (end - start) + 1;
     const file = fs.createReadStream(filePath, { start, end });
 
     const head = {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-      'Accept-Ranges': 'bytes',
       'Content-Length': chunksize,
       'Content-Type': contentType,
     };

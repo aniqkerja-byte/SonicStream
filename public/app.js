@@ -16,7 +16,10 @@ const state = {
   analyser: null,
   visualizerAnimId: null,
   selectionMode: false,
-  selectedSongIds: new Set()
+  selectedSongIds: new Set(),
+  audioPool: [],
+  activeAudio: null,
+  preloadTimer: null
 };
 
 // DOM Elements
@@ -178,10 +181,7 @@ function initEvents() {
   });
 
   // Audio Element Events
-  elements.audio.addEventListener('timeupdate', updateProgress);
-  elements.audio.addEventListener('ended', onSongEnded);
-  elements.audio.addEventListener('play', () => setPlayingState(true));
-  elements.audio.addEventListener('pause', () => setPlayingState(false));
+  initAudioPool();
 
   // Visualizer Toggle Button
   const visualizerBtn = document.getElementById('toggle-visualizer');
@@ -453,6 +453,53 @@ function renderPlaylists() {
 }
 
 // Audio Playback Actions
+function initAudioPool() {
+  state.audioPool = [elements.audio, new Audio()];
+  state.activeAudio = elements.audio;
+  state.audioPool.forEach(audio => {
+    audio.preload = 'auto';
+    audio.addEventListener('timeupdate', () => {
+      if (audio === state.activeAudio) updateProgress();
+    });
+    audio.addEventListener('ended', () => {
+      if (audio === state.activeAudio) onSongEnded();
+    });
+    audio.addEventListener('play', () => {
+      if (audio === state.activeAudio) setPlayingState(true);
+    });
+    audio.addEventListener('pause', () => {
+      if (audio === state.activeAudio) setPlayingState(false);
+    });
+  });
+}
+
+function getNextSongIndex() {
+  if (state.filteredSongs.length === 0) return -1;
+  if (state.isShuffle) return Math.floor(Math.random() * state.filteredSongs.length);
+  return (state.currentIndex + 1) % state.filteredSongs.length;
+}
+
+function preloadNextSong() {
+  const nextIndex = getNextSongIndex();
+  if (nextIndex < 0 || nextIndex === state.currentIndex) return;
+
+  const nextUrl = `/api/stream/${state.filteredSongs[nextIndex].id}`;
+  const preloadAudio = state.audioPool.find(audio => audio !== state.activeAudio);
+  if (!preloadAudio || preloadAudio.src === new URL(nextUrl, window.location.href).href) return;
+
+  preloadAudio.volume = state.volume;
+  preloadAudio.src = nextUrl;
+  preloadAudio.load();
+}
+
+function schedulePreloadNextSong() {
+  clearTimeout(state.preloadTimer);
+  state.preloadTimer = setTimeout(() => {
+    // Do not compete with the first seconds of playback, especially on mobile.
+    if (state.isPlaying) preloadNextSong();
+  }, 2500);
+}
+
 function playSongIndex(index) {
   if (index < 0 || index >= state.filteredSongs.length) return;
 
@@ -463,8 +510,22 @@ function playSongIndex(index) {
   const streamUrl = `/api/stream/${song.id}`;
   const coverUrl = `/api/cover/${song.id}`;
 
-  elements.audio.src = streamUrl;
-  elements.audio.play();
+  const streamAbsoluteUrl = new URL(streamUrl, window.location.href).href;
+  const preparedAudio = state.audioPool.find(audio => audio !== state.activeAudio && audio.src === streamAbsoluteUrl && audio.readyState >= 3);
+  const previousAudio = state.activeAudio;
+
+  if (preparedAudio) {
+    previousAudio.pause();
+    elements.audio = preparedAudio;
+    state.activeAudio = preparedAudio;
+    elements.audio.volume = state.volume;
+  } else {
+    elements.audio.volume = state.volume;
+    elements.audio.src = streamUrl;
+    state.activeAudio = elements.audio;
+  }
+
+  elements.audio.play().catch(error => console.warn('Audio playback could not start:', error));
 
   // Update UI Elements
   elements.playerTitle.textContent = song.title;
@@ -478,6 +539,7 @@ function playSongIndex(index) {
   updateFavIcon();
   renderSongList();
   setupMediaSession(song);
+  schedulePreloadNextSong();
 }
 
 function playSpecificSong(songId) {
@@ -514,15 +576,7 @@ function setPlayingState(playing) {
 
 function playNext() {
   if (state.filteredSongs.length === 0) return;
-
-  if (state.isShuffle) {
-    const nextIdx = Math.floor(Math.random() * state.filteredSongs.length);
-    playSongIndex(nextIdx);
-  } else {
-    let nextIdx = state.currentIndex + 1;
-    if (nextIdx >= state.filteredSongs.length) nextIdx = 0;
-    playSongIndex(nextIdx);
-  }
+  playSongIndex(getNextSongIndex());
 }
 
 function playPrev() {
