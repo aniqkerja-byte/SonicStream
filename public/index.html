@@ -404,6 +404,33 @@
         </div>
       </div>
     </div>
+
+    <!-- Create Playlist Modal -->
+    <div class="modal-overlay" id="create-playlist-modal" style="display:none;">
+      <div class="modal-box playlist-name-modal">
+        <div class="modal-header">
+          <div class="modal-heading-group">
+            <div class="modal-icon"><i class="fa-solid fa-music"></i></div>
+            <div>
+              <span class="modal-eyebrow">KOLEKSI ANDA</span>
+              <h3>Cipta Playlist Baharu</h3>
+            </div>
+          </div>
+          <button class="modal-close-btn" id="close-create-playlist-modal" aria-label="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form id="create-playlist-form">
+          <div class="modal-body">
+            <label class="modal-label" for="playlist-name-input">Nama playlist</label>
+            <input class="modal-input" id="playlist-name-input" type="text" maxlength="80" placeholder="Contoh: Lagu Kegemaran Saya" autocomplete="off" required>
+            <p class="modal-hint">Berikan nama yang mudah dikenali untuk koleksi lagu anda.</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" type="button" id="cancel-create-playlist">Batal</button>
+            <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> Cipta Playlist</button>
+          </div>
+        </form>
+      </div>
+    </div>
     
     <!-- Bulk Add Modal -->
     <div class="modal-overlay" id="bulk-add-modal" style="display:none;">
@@ -441,7 +468,7 @@
   <!-- Audio Element -->
   <audio id="audio-player" preload="metadata" playsinline></audio>
 
-  <script src="app.js?v=8.2"></script>
+  <script src="app.js?v=8.3"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

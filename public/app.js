@@ -960,19 +960,49 @@ function renderPlaylistSongs(pl) {
   }).join('');
 }
 
-// Add event listener to Create Playlist
-document.getElementById('create-playlist-btn').addEventListener('click', async () => {
-  const name = prompt('Nama Playlist Baru:');
+// Create playlist modal
+const createPlaylistModal = document.getElementById('create-playlist-modal');
+const createPlaylistForm = document.getElementById('create-playlist-form');
+const playlistNameInput = document.getElementById('playlist-name-input');
+
+function closeCreatePlaylistModal() {
+  createPlaylistModal.style.display = 'none';
+  createPlaylistForm.reset();
+}
+
+document.getElementById('create-playlist-btn').addEventListener('click', () => {
+  createPlaylistModal.style.display = 'flex';
+  requestAnimationFrame(() => playlistNameInput.focus());
+});
+
+document.getElementById('close-create-playlist-modal').addEventListener('click', closeCreatePlaylistModal);
+document.getElementById('cancel-create-playlist').addEventListener('click', closeCreatePlaylistModal);
+createPlaylistModal.addEventListener('click', event => {
+  if (event.target === createPlaylistModal) closeCreatePlaylistModal();
+});
+
+createPlaylistForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const name = playlistNameInput.value.trim();
   if (!name) return;
+
+  const submitButton = createPlaylistForm.querySelector('[type="submit"]');
+  submitButton.disabled = true;
   try {
-    await fetch('/api/playlists', {
+    const res = await fetch('/api/playlists', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name })
     });
-    fetchPlaylists();
-  } catch (e) {
-    console.error(e);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Playlist creation failed');
+    closeCreatePlaylistModal();
+    await fetchPlaylists();
+  } catch (error) {
+    console.error('Playlist creation failed:', error);
+    alert('Gagal mencipta playlist.');
+  } finally {
+    submitButton.disabled = false;
   }
 });
 

@@ -1331,6 +1331,71 @@ body {
   margin: 0;
 }
 
+.modal-heading-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #06150b;
+  background: var(--spotify-green);
+  box-shadow: 0 6px 18px rgba(30, 215, 96, 0.22);
+}
+
+.modal-eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--spotify-green);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+}
+
+.playlist-name-modal {
+  max-width: 440px;
+}
+
+.modal-label {
+  color: var(--text-base);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  outline: none;
+  background: var(--bg-surface-elevated);
+  color: var(--text-base);
+  font: inherit;
+  font-size: 13px;
+  transition: var(--transition);
+}
+
+.modal-input::placeholder {
+  color: #777;
+}
+
+.modal-input:focus {
+  border-color: var(--spotify-green);
+  box-shadow: 0 0 0 3px rgba(30, 215, 96, 0.12);
+}
+
+.modal-hint {
+  margin: -2px 0 0;
+  color: var(--text-subdued);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .modal-close-btn {
   background: transparent;
   border: none;
