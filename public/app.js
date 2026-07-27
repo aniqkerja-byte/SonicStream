@@ -378,7 +378,7 @@ window.deleteSelectedSongs = async function() {
   if (songIds.length === 0) return;
 
   const message = `Padam ${songIds.length} lagu terpilih secara kekal daripada laptop?`;
-  if (!confirm(message)) return;
+  if (!await showAppConfirm(message, 'Padam lagu terpilih?', 'danger')) return;
 
   try {
     const res = await fetch('/api/songs/bulk-delete', {
@@ -394,10 +394,10 @@ window.deleteSelectedSongs = async function() {
     await fetchSongs();
     await fetchPlaylists();
     updateSelectionControls();
-    alert(data.message || 'Lagu terpilih berjaya dipadam.');
+    await showAppAlert(data.message || 'Lagu terpilih berjaya dipadam.', 'Lagu dipadam');
   } catch (error) {
     console.error('Bulk delete failed:', error);
-    alert('Ralat semasa memadam lagu terpilih.');
+    await showAppAlert('Ralat semasa memadam lagu terpilih.', 'Padam gagal', 'danger');
   }
 };
 
@@ -717,7 +717,7 @@ function updateFavIcon() {
 }
 
 async function deleteSong(songId) {
-  if (!confirm('Adakah anda pasti mahu memadam lagu ini daripada laptop server?')) return;
+  if (!await showAppConfirm('Adakah anda pasti mahu memadam lagu ini daripada laptop server?', 'Padam lagu ini?', 'danger')) return;
 
   try {
     const res = await fetch(`/api/songs/${encodeURIComponent(songId)}`, { method: 'DELETE' });
@@ -725,9 +725,9 @@ async function deleteSong(songId) {
     if (!res.ok) throw new Error(data.error || 'Delete failed');
     await fetchSongs();
     await fetchPlaylists();
-    alert(data.message || 'Lagu berjaya dipadam.');
+    await showAppAlert(data.message || 'Lagu berjaya dipadam.', 'Lagu dipadam');
   } catch (e) {
-    alert('Gagal memadam lagu.');
+    await showAppAlert('Gagal memadam lagu.', 'Padam gagal', 'danger');
   }
 }
 
@@ -905,6 +905,70 @@ function escapeHtml(str) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// Themed app dialogs replace browser alert/confirm popups.
+const appDialog = document.getElementById('app-dialog');
+const appDialogTitle = document.getElementById('app-dialog-title');
+const appDialogMessage = document.getElementById('app-dialog-message');
+const appDialogIcon = document.getElementById('app-dialog-icon');
+const appDialogCancel = document.getElementById('app-dialog-cancel');
+const appDialogConfirm = document.getElementById('app-dialog-confirm');
+let appDialogResolver = null;
+
+function closeAppDialog(result) {
+  appDialog.style.display = 'none';
+  if (appDialogResolver) {
+    const resolve = appDialogResolver;
+    appDialogResolver = null;
+    resolve(result);
+  }
+}
+
+function resetAppDialog() {
+  if (!appDialogResolver) return;
+  const resolve = appDialogResolver;
+  appDialogResolver = null;
+  appDialog.style.display = 'none';
+  resolve(false);
+}
+
+function showAppDialog({ title, message, confirmText = 'OK', cancelText = 'Batal', type = 'info', showCancel = false }) {
+  if (appDialogResolver) resetAppDialog();
+  appDialogTitle.textContent = title;
+  appDialogMessage.textContent = message;
+  appDialogConfirm.textContent = confirmText;
+  appDialogCancel.textContent = cancelText;
+  appDialogCancel.style.display = showCancel ? 'inline-flex' : 'none';
+  appDialogIcon.className = `app-dialog-icon ${type === 'danger' ? 'danger' : type === 'warning' ? 'warning' : ''}`;
+  appDialogIcon.innerHTML = type === 'danger'
+    ? '<i class="fa-solid fa-trash-can"></i>'
+    : type === 'warning'
+      ? '<i class="fa-solid fa-triangle-exclamation"></i>'
+      : '<i class="fa-solid fa-circle-info"></i>';
+  appDialog.style.display = 'flex';
+  requestAnimationFrame(() => (showCancel ? appDialogCancel : appDialogConfirm).focus());
+
+  return new Promise(resolve => {
+    appDialogResolver = resolve;
+  });
+}
+
+function showAppAlert(message, title = 'Makluman', type = 'info') {
+  return showAppDialog({ title, message, type });
+}
+
+function showAppConfirm(message, title = 'Sahkan tindakan', type = 'warning') {
+  return showAppDialog({ title, message, type, confirmText: 'Teruskan', showCancel: true });
+}
+
+appDialogConfirm.addEventListener('click', () => closeAppDialog(true));
+appDialogCancel.addEventListener('click', () => closeAppDialog(false));
+appDialog.addEventListener('click', event => {
+  if (event.target === appDialog) closeAppDialog(false);
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && appDialog.style.display !== 'none') closeAppDialog(false);
+});
+
 // =========================================================
 // PLAYLIST UI LOGIC
 // =========================================================
@@ -1000,7 +1064,7 @@ createPlaylistForm.addEventListener('submit', async event => {
     await fetchPlaylists();
   } catch (error) {
     console.error('Playlist creation failed:', error);
-    alert('Gagal mencipta playlist.');
+    await showAppAlert('Gagal mencipta playlist.', 'Playlist gagal dicipta', 'danger');
   } finally {
     submitButton.disabled = false;
   }
@@ -1045,7 +1109,7 @@ window.addSongToPlaylist = async function(playlistId) {
     document.getElementById('add-to-playlist-modal').style.display = 'none';
     currentSongToAdd = null;
     fetchPlaylists();
-    alert('Lagu ditambah ke playlist!');
+    await showAppAlert('Lagu ditambah ke playlist!', 'Playlist dikemas kini');
   } catch (e) {
     console.error(e);
   }
@@ -1053,7 +1117,7 @@ window.addSongToPlaylist = async function(playlistId) {
 
 window.removeSongFromPlaylist = async function(songId) {
   if (!state.currentPlaylistId) return;
-  if (!confirm('Buang lagu ini dari playlist?')) return;
+  if (!await showAppConfirm('Buang lagu ini dari playlist?', 'Buang lagu?', 'warning')) return;
   try {
     await fetch(`/api/playlists/${state.currentPlaylistId}/songs/${songId}`, {
       method: 'DELETE'
@@ -1068,23 +1132,23 @@ window.removeSongFromPlaylist = async function(songId) {
 window.deleteSongFromLibrary = async function(songId) {
   const song = state.songs.find(s => s.id === songId);
   const name = song ? song.title : 'lagu ini';
-  if (!confirm(`Adakah anda pasti untuk memadam "${name}" secara KEKAL daripada simpanan laptop?`)) return;
+  if (!await showAppConfirm(`Adakah anda pasti untuk memadam "${name}" secara KEKAL daripada simpanan laptop?`, 'Padam lagu secara kekal?', 'danger')) return;
   try {
     const res = await fetch(`/api/songs/${encodeURIComponent(songId)}`, { method: 'DELETE' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Delete failed');
     await fetchSongs();
     await fetchPlaylists();
-    alert(data.message || 'Lagu berjaya dipadam!');
+    await showAppAlert(data.message || 'Lagu berjaya dipadam!', 'Lagu dipadam');
   } catch (e) {
     console.error(e);
-    alert('Ralat semasa memadam lagu.');
+    await showAppAlert('Ralat semasa memadam lagu.', 'Padam gagal', 'danger');
   }
 };
 
 document.getElementById('delete-playlist-btn').addEventListener('click', async () => {
   if (!state.currentPlaylistId) return;
-  if (!confirm('Padam playlist ini sepenuhnya?')) return;
+  if (!await showAppConfirm('Padam playlist ini sepenuhnya?', 'Padam playlist?', 'danger')) return;
   try {
     await fetch(`/api/playlists/${state.currentPlaylistId}`, {
       method: 'DELETE'
@@ -1211,7 +1275,7 @@ window.updateBulkCount = function() {
 window.submitBulkAdd = async function() {
   if (!state.currentPlaylistId) return;
   if (bulkSelectedSongs.size === 0) {
-    alert('Sila pilih sekurang-kurangnya satu lagu.');
+    await showAppAlert('Sila pilih sekurang-kurangnya satu lagu.', 'Tiada lagu dipilih', 'warning');
     return;
   }
   
@@ -1226,7 +1290,7 @@ window.submitBulkAdd = async function() {
     bulkSelectedSongs.clear();
     await fetchPlaylists();
     setTimeout(() => openPlaylist(state.currentPlaylistId), 100);
-    alert('Lagu-lagu berjaya ditambah ke playlist!');
+    await showAppAlert('Lagu-lagu berjaya ditambah ke playlist!', 'Playlist dikemas kini');
   } catch (e) {
     console.error(e);
   }

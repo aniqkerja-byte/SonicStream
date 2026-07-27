@@ -1396,6 +1396,70 @@ body {
   line-height: 1.5;
 }
 
+.app-dialog-box {
+  max-width: 430px;
+  padding: 22px;
+}
+
+.app-dialog-content {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.app-dialog-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 13px;
+  color: #06150b;
+  background: var(--spotify-green);
+  font-size: 18px;
+}
+
+.app-dialog-icon.warning {
+  color: #241800;
+  background: #f5b942;
+}
+
+.app-dialog-icon.danger {
+  color: #26070a;
+  background: var(--text-negative);
+}
+
+.app-dialog-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.app-dialog-copy h3 {
+  margin: 0;
+  color: var(--text-base);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.app-dialog-copy p {
+  margin: 8px 0 0;
+  color: var(--text-subdued);
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.app-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.app-dialog-actions .btn {
+  min-width: 92px;
+}
+
 .modal-close-btn {
   background: transparent;
   border: none;

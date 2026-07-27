@@ -421,7 +421,7 @@
         <form id="create-playlist-form">
           <div class="modal-body">
             <label class="modal-label" for="playlist-name-input">Nama playlist</label>
-            <input class="modal-input" id="playlist-name-input" type="text" maxlength="80" placeholder="Contoh: Lagu Kegemaran Saya" autocomplete="off" required>
+            <input class="modal-input" id="playlist-name-input" type="text" maxlength="80" placeholder="Contoh: Lagu Kegemaran Saya" autocomplete="off">
             <p class="modal-hint">Berikan nama yang mudah dikenali untuk koleksi lagu anda.</p>
           </div>
           <div class="modal-footer">
@@ -429,6 +429,24 @@
             <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> Cipta Playlist</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- App Dialog -->
+    <div class="modal-overlay app-dialog-overlay" id="app-dialog" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
+      <div class="modal-box app-dialog-box">
+        <div class="app-dialog-content">
+          <div class="app-dialog-icon" id="app-dialog-icon"><i class="fa-solid fa-circle-info"></i></div>
+          <div class="app-dialog-copy">
+            <span class="modal-eyebrow" id="app-dialog-eyebrow">SONICSTREAM</span>
+            <h3 id="app-dialog-title">Makluman</h3>
+            <p id="app-dialog-message"></p>
+          </div>
+        </div>
+        <div class="app-dialog-actions">
+          <button class="btn btn-secondary" id="app-dialog-cancel" type="button">Batal</button>
+          <button class="btn btn-primary" id="app-dialog-confirm" type="button">OK</button>
+        </div>
       </div>
     </div>
     
@@ -468,7 +486,7 @@
   <!-- Audio Element -->
   <audio id="audio-player" preload="metadata" playsinline></audio>
 
-  <script src="app.js?v=8.3"></script>
+  <script src="app.js?v=8.4"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
