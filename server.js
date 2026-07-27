@@ -149,11 +149,19 @@ async function scanMusicFiles() {
   }
 }
 
-// Watch directory for changes
+// Watch directory for changes, but scan once after a batch of file events.
+let scanTimer = null;
+function scheduleMusicScan() {
+  clearTimeout(scanTimer);
+  scanTimer = setTimeout(() => {
+    scanMusicFiles().catch(error => console.error('Scheduled music scan failed:', error));
+  }, 400);
+}
+
 const watcher = chokidar.watch(MUSIC_DIR, { ignoreInitial: true });
-watcher.on('add', () => scanMusicFiles());
-watcher.on('unlink', () => scanMusicFiles());
-watcher.on('change', () => scanMusicFiles());
+watcher.on('add', scheduleMusicScan);
+watcher.on('unlink', scheduleMusicScan);
+watcher.on('change', scheduleMusicScan);
 
 // Initial scan
 scanMusicFiles();
@@ -272,9 +280,9 @@ app.get('/api/stream/:id', (req, res) => {
 
 // Upload song
 app.post('/api/upload', upload.array('songs', 20), async (req, res) => {
-  await scanMusicFiles();
-  res.json({
-    message: 'Lagu berjaya dimuat naik!',
+  scheduleMusicScan();
+  res.status(202).json({
+    message: 'Lagu berjaya diterima. Senarai lagu sedang dikemas kini...',
     uploaded: req.files ? req.files.length : 0
   });
 });

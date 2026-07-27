@@ -773,9 +773,13 @@ async function uploadFiles(files) {
       body: formData
     });
     const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
     elements.uploadProgressList.innerHTML = `<div class="empty-state" style="padding:24px; text-align:center; color:var(--spotify-green);"><i class="fa-solid fa-circle-check"></i><p>${data.message}</p></div>`;
-    fetchSongs();
+    await fetchSongs();
+    setTimeout(fetchSongs, 1200);
+    elements.fileInput.value = '';
   } catch (e) {
+    console.error('Upload failed:', e);
     elements.uploadProgressList.innerHTML = `<div class="empty-state" style="padding:24px; text-align:center; color:var(--text-negative);"><i class="fa-solid fa-triangle-exclamation"></i><p>Gagal memuat naik lagu.</p></div>`;
   }
 }
