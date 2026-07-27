@@ -128,7 +128,12 @@
             <div class="filter-group">
               <button class="chip active" data-filter="all">Semua</button>
               <button class="chip" data-filter="recent">Terbaharu</button>
-              <button class="chip" onclick="openBulkDeleteLibraryModal()" style="background: rgba(243, 114, 127, 0.12); color: var(--text-negative); border: 1px solid rgba(243, 114, 127, 0.25);"><i class="fa-solid fa-trash-can"></i> Padam Pukal</button>
+              <button class="chip" id="selection-mode-btn" onclick="toggleSelectionMode()"><i class="fa-solid fa-check-square"></i> Pilih</button>
+              <div class="selection-actions" id="selection-actions" hidden>
+                <button class="chip" id="select-all-songs-btn" onclick="toggleSelectAllSongs()"><i class="fa-solid fa-check-double"></i> Pilih Semua</button>
+                <button class="chip selection-delete-btn" id="delete-selected-btn" onclick="deleteSelectedSongs()" disabled><i class="fa-solid fa-trash-can"></i> Padam Terpilih <span id="selected-songs-count">(0)</span></button>
+                <button class="chip" onclick="toggleSelectionMode(false)">Batal</button>
+              </div>
             </div>
             <div class="sort-group">
               <label for="sort-select"><i class="fa-solid fa-arrow-down-short-wide"></i> Susun:</label>
@@ -142,6 +147,9 @@
 
           <!-- Spotify Tracklist Header -->
           <div class="track-table-header">
+            <div id="song-select-header" class="song-select-cell" hidden>
+              <input type="checkbox" id="select-all-songs-checkbox" aria-label="Pilih semua lagu" onchange="toggleSelectAllSongs(this.checked)">
+            </div>
             <div>#</div>
             <div></div>
             <div>TAJUK</div>
@@ -426,44 +434,14 @@
           <button class="btn btn-secondary" onclick="document.getElementById('bulk-add-modal').style.display='none'">Batal</button>
           <button class="btn btn-primary" onclick="submitBulkAdd()">Simpan Lagu <span id="bulk-count">(0)</span></button>
         </div>
-    <!-- Bulk Delete Modal (For Library or Playlist Bulk Removal) -->
-    <div class="modal-overlay" id="bulk-delete-modal" style="display:none;">
-      <div class="modal-box">
-        <div class="modal-header">
-          <h3 id="bulk-delete-title" style="color: var(--text-negative);">Padam Lagu Pukal</h3>
-          <button class="modal-close-btn" onclick="document.getElementById('bulk-delete-modal').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="modal-body">
-          <div style="position: relative; width: 100%;">
-            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-subdued); font-size: 14px;"></i>
-            <input type="text" id="bulk-delete-search-input" placeholder="Cari tajuk atau penyanyi..." style="width: 100%; padding: 10px 14px 10px 38px; border-radius: var(--radius-pill); border: 1px solid var(--border-subtle); background: var(--bg-surface-elevated); color: white; font-size: 13px; outline: none;">
-          </div>
-          
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
-            <span style="font-size: 12px; color: var(--text-subdued); font-weight: 600;" id="bulk-delete-subtext">Pilih lagu yang ingin dipadam:</span>
-            <div style="display: flex; gap: 6px;">
-              <button class="chip" onclick="selectAllBulkDelete(true)" style="padding: 4px 12px; font-size: 11px;">Pilih Semua</button>
-              <button class="chip" onclick="selectAllBulkDelete(false)" style="padding: 4px 12px; font-size: 11px;">Reset</button>
-            </div>
-          </div>
-
-          <div id="bulk-delete-songs-list" style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-            <!-- dynamic checkbox items -->
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="document.getElementById('bulk-delete-modal').style.display='none'">Batal</button>
-          <button class="btn btn-primary" id="bulk-delete-submit-btn" onclick="submitBulkDelete()" disabled style="background: var(--text-negative); border-color: var(--text-negative); opacity:.5; cursor:not-allowed;">Padam Lagu <span id="bulk-delete-count">(0)</span></button>
-        </div>
       </div>
     </div>
-
   </div>
 
   <!-- Audio Element -->
   <audio id="audio-player" preload="metadata" playsinline></audio>
 
-  <script src="app.js?v=7.0"></script>
+  <script src="app.js?v=8.0"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

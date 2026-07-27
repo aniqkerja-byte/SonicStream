@@ -14,7 +14,9 @@ const state = {
   activeTab: 'all-songs',
   audioCtx: null,
   analyser: null,
-  visualizerAnimId: null
+  visualizerAnimId: null,
+  selectionMode: false,
+  selectedSongIds: new Set()
 };
 
 // DOM Elements
@@ -242,6 +244,9 @@ async function fetchSongs() {
     const songs = await res.json();
     state.songs = songs;
     state.filteredSongs = [...songs];
+    state.selectedSongIds.forEach(id => {
+      if (!songs.some(song => song.id === id)) state.selectedSongIds.delete(id);
+    });
     state.favorites = songs.filter(s => s.isFavorite).map(s => s.id);
     
     elements.totalSongsVal.textContent = songs.length;
@@ -249,6 +254,7 @@ async function fetchSongs() {
     
     renderSongList();
     renderFavoritesList();
+    updateSelectionControls();
   } catch (e) {
     console.error('Error fetching songs:', e);
     elements.songList.innerHTML = `<div class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i><p>Gagal memuatkan senarai lagu dari laptop server.</p></div>`;
@@ -283,9 +289,11 @@ function renderSongList() {
     const durationStr = formatTime(song.duration);
     const coverUrl = `/api/cover/${song.id}`;
     const isFav = state.favorites.includes(song.id);
+    const isSelected = state.selectedSongIds.has(song.id);
 
     return `
-      <div class="song-card ${isCurrent ? 'playing' : ''}" data-index="${index}" onclick="playSongIndex(${index})">
+      <div class="song-card ${isCurrent ? 'playing' : ''} ${isSelected ? 'selected-for-delete' : ''}" data-index="${index}" onclick="${state.selectionMode ? `toggleSongSelection('${song.id}')` : `playSongIndex(${index})`}">
+        ${state.selectionMode ? `<div class="song-select-cell" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Pilih ${escapeHtml(song.title)}" ${isSelected ? 'checked' : ''} onchange="toggleSongSelection('${song.id}', this.checked)"></div>` : ''}
         <div class="song-num">
           ${isPlaying ? '<i class="fa-solid fa-chart-simple fa-beat" style="color:var(--spotify-green)"></i>' : (index + 1)}
         </div>
@@ -312,6 +320,86 @@ function renderSongList() {
     `;
   }).join('');
 }
+function getVisibleSongIds() {
+  return state.filteredSongs.map(song => song.id);
+}
+function updateSelectionControls() {
+  const actions = document.getElementById('selection-actions');
+  const header = document.getElementById('song-select-header');
+  const selectAllCheckbox = document.getElementById('select-all-songs-checkbox');
+  const deleteButton = document.getElementById('delete-selected-btn');
+  const count = document.getElementById('selected-songs-count');
+  const selectionButton = document.getElementById('selection-mode-btn');
+  const visibleIds = getVisibleSongIds();
+  const allSelected = visibleIds.length > 0 && visibleIds.every(id => state.selectedSongIds.has(id));
+
+  if (actions) actions.hidden = !state.selectionMode;
+  if (selectionButton) selectionButton.hidden = state.selectionMode;
+  if (header) header.hidden = !state.selectionMode;
+  if (selectAllCheckbox) {
+    selectAllCheckbox.checked = allSelected;
+    selectAllCheckbox.indeterminate = !allSelected && visibleIds.some(id => state.selectedSongIds.has(id));
+  }
+  if (count) count.textContent = `(${state.selectedSongIds.size})`;
+  if (deleteButton) deleteButton.disabled = state.selectedSongIds.size === 0;
+}
+
+window.toggleSelectionMode = function(enabled = !state.selectionMode) {
+  state.selectionMode = enabled;
+  if (!enabled) state.selectedSongIds.clear();
+  const button = document.getElementById('selection-mode-btn');
+  if (button) button.classList.toggle('active', state.selectionMode);
+  renderSongList();
+  updateSelectionControls();
+};
+
+window.toggleSongSelection = function(songId, selected) {
+  if (selected === undefined) selected = !state.selectedSongIds.has(songId);
+  if (selected) state.selectedSongIds.add(songId);
+  else state.selectedSongIds.delete(songId);
+  renderSongList();
+  updateSelectionControls();
+};
+
+window.toggleSelectAllSongs = function(selected) {
+  const visibleIds = getVisibleSongIds();
+  const allSelected = visibleIds.length > 0 && visibleIds.every(id => state.selectedSongIds.has(id));
+  const shouldSelect = selected === undefined ? !allSelected : selected;
+  visibleIds.forEach(id => {
+    if (shouldSelect) state.selectedSongIds.add(id);
+    else state.selectedSongIds.delete(id);
+  });
+  renderSongList();
+  updateSelectionControls();
+};
+
+window.deleteSelectedSongs = async function() {
+  const songIds = Array.from(state.selectedSongIds);
+  if (songIds.length === 0) return;
+
+  const message = `Padam ${songIds.length} lagu terpilih secara kekal daripada laptop?`;
+  if (!confirm(message)) return;
+
+  try {
+    const res = await fetch('/api/songs/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ songIds })
+    });
+    const data = await res.json();
+    if (!res.ok && res.status !== 207) throw new Error(data.error || 'Delete failed');
+
+    state.selectedSongIds.clear();
+    state.selectionMode = false;
+    await fetchSongs();
+    await fetchPlaylists();
+    updateSelectionControls();
+    alert(data.message || 'Lagu terpilih berjaya dipadam.');
+  } catch (error) {
+    console.error('Bulk delete failed:', error);
+    alert('Ralat semasa memadam lagu terpilih.');
+  }
+};
 
 function renderFavoritesList() {
   const favSongs = state.songs.filter(s => state.favorites.includes(s.id));
@@ -1056,189 +1144,3 @@ if (bulkSearchInput) {
   });
 }
 
-// =========================================================
-// BULK DELETE UI LOGIC
-// =========================================================
-
-let bulkDeleteSelectedSongs = new Set();
-let bulkDeleteSearchQuery = '';
-let bulkDeleteMode = 'library'; // 'library' or 'playlist'
-
-window.openBulkDeleteLibraryModal = function() {
-  bulkDeleteMode = 'library';
-  bulkDeleteSelectedSongs.clear();
-  bulkDeleteSearchQuery = '';
-  
-  const title = document.getElementById('bulk-delete-title');
-  const subtext = document.getElementById('bulk-delete-subtext');
-  const input = document.getElementById('bulk-delete-search-input');
-  
-  if (title) title.textContent = 'Padam Lagu dari Laptop (Bulk Delete)';
-  if (subtext) subtext.textContent = 'Pilih lagu yang ingin dipadam dari simpanan laptop:';
-  if (input) input.value = '';
-  
-  document.getElementById('bulk-delete-modal').style.display = 'flex';
-  renderBulkDeleteSongs();
-  updateBulkDeleteCount();
-};
-
-window.openBulkRemoveFromPlaylistModal = function() {
-  if (!state.currentPlaylistId) return;
-  bulkDeleteMode = 'playlist';
-  bulkDeleteSelectedSongs.clear();
-  bulkDeleteSearchQuery = '';
-  
-  const title = document.getElementById('bulk-delete-title');
-  const subtext = document.getElementById('bulk-delete-subtext');
-  const input = document.getElementById('bulk-delete-search-input');
-  
-  if (title) title.textContent = 'Buang Lagu dari Playlist';
-  if (subtext) subtext.textContent = 'Pilih lagu yang ingin dibuang daripada playlist ini:';
-  if (input) input.value = '';
-  
-  document.getElementById('bulk-delete-modal').style.display = 'flex';
-  renderBulkDeleteSongs();
-  updateBulkDeleteCount();
-};
-
-window.renderBulkDeleteSongs = function() {
-  const container = document.getElementById('bulk-delete-songs-list');
-  let availableSongs = [];
-  
-  if (bulkDeleteMode === 'playlist') {
-    const pl = state.playlists.find(p => p.id === state.currentPlaylistId);
-    const songIds = pl ? pl.songs : [];
-    availableSongs = songIds.map(id => state.songs.find(s => s.id === id)).filter(Boolean);
-  } else {
-    availableSongs = state.songs;
-  }
-
-  if (bulkDeleteSearchQuery.trim()) {
-    const q = bulkDeleteSearchQuery.toLowerCase();
-    availableSongs = availableSongs.filter(s => s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q));
-  }
-
-  if (availableSongs.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--text-subdued); font-size: 13px;">Tiada lagu ditemui.</div>`;
-    return;
-  }
-
-  container.innerHTML = availableSongs.map(song => {
-    const isChecked = bulkDeleteSelectedSongs.has(song.id);
-    const coverUrl = `/api/cover/${song.id}`;
-    
-    return `
-      <div class="bulk-song-item ${isChecked ? 'selected' : ''}" 
-           style="${isChecked ? 'border-color: rgba(243, 114, 127, 0.4); background: rgba(243, 114, 127, 0.08);' : ''}"
-           onclick="toggleBulkDeleteSongItem('${song.id}')">
-        <img class="bulk-song-cover" src="${coverUrl}" alt="Cover" onerror="this.src='default-cover.svg'">
-        <div class="bulk-song-info">
-          <div class="bulk-song-title">${escapeHtml(song.title)}</div>
-          <div class="bulk-song-artist">${escapeHtml(song.artist)}</div>
-        </div>
-        <div class="bulk-checkbox" style="${isChecked ? 'background: var(--text-negative); border-color: var(--text-negative); color: white;' : ''}">
-          ${isChecked ? '<i class="fa-solid fa-check"></i>' : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
-};
-
-window.toggleBulkDeleteSongItem = function(songId) {
-  if (bulkDeleteSelectedSongs.has(songId)) {
-    bulkDeleteSelectedSongs.delete(songId);
-  } else {
-    bulkDeleteSelectedSongs.add(songId);
-  }
-  renderBulkDeleteSongs();
-  updateBulkDeleteCount();
-};
-
-window.selectAllBulkDelete = function(selectAll) {
-  let availableSongs = [];
-  if (bulkDeleteMode === 'playlist') {
-    const pl = state.playlists.find(p => p.id === state.currentPlaylistId);
-    const songIds = pl ? pl.songs : [];
-    availableSongs = songIds.map(id => state.songs.find(s => s.id === id)).filter(Boolean);
-  } else {
-    availableSongs = state.songs;
-  }
-
-  if (bulkDeleteSearchQuery.trim()) {
-    const q = bulkDeleteSearchQuery.toLowerCase();
-    availableSongs = availableSongs.filter(s => s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q));
-  }
-
-  availableSongs.forEach(song => {
-    if (selectAll) bulkDeleteSelectedSongs.add(song.id);
-    else bulkDeleteSelectedSongs.delete(song.id);
-  });
-
-  renderBulkDeleteSongs();
-  updateBulkDeleteCount();
-};
-
-window.updateBulkDeleteCount = function() {
-  const countSpan = document.getElementById('bulk-delete-count');
-  if (countSpan) countSpan.textContent = `(${bulkDeleteSelectedSongs.size})`;
-  const submitButton = document.getElementById('bulk-delete-submit-btn');
-  if (submitButton) {
-    const hasSelection = bulkDeleteSelectedSongs.size > 0;
-    submitButton.disabled = !hasSelection;
-    submitButton.style.opacity = hasSelection ? '1' : '.5';
-    submitButton.style.cursor = hasSelection ? 'pointer' : 'not-allowed';
-  }
-};
-
-window.submitBulkDelete = async function() {
-  if (bulkDeleteSelectedSongs.size === 0) {
-    alert('Sila pilih sekurang-kurangnya satu lagu.');
-    return;
-  }
-
-  const count = bulkDeleteSelectedSongs.size;
-  const targetName = bulkDeleteMode === 'playlist' ? 'dari playlist' : 'secara KEKAL dari simpanan laptop';
-  
-  if (!confirm(`Adakah anda pasti untuk memadam ${count} lagu ini ${targetName}?`)) {
-    return;
-  }
-
-  try {
-    if (bulkDeleteMode === 'playlist') {
-      const res = await fetch(`/api/playlists/${state.currentPlaylistId}/songs`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ songIds: Array.from(bulkDeleteSelectedSongs) })
-      });
-      if (!res.ok) throw new Error('Playlist update failed');
-      await fetchPlaylists();
-      setTimeout(() => openPlaylist(state.currentPlaylistId), 100);
-      alert(`Berjaya membuang ${count} lagu dari playlist!`);
-    } else {
-      const res = await fetch('/api/songs/bulk-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ songIds: Array.from(bulkDeleteSelectedSongs) })
-      });
-      const data = await res.json();
-      if (!res.ok && res.status !== 207) throw new Error(data.error || 'Delete failed');
-      await fetchSongs();
-      await fetchPlaylists();
-      alert(data.message || `Berjaya memadam ${count} lagu dari simpanan laptop!`);
-    }
-
-    document.getElementById('bulk-delete-modal').style.display = 'none';
-    bulkDeleteSelectedSongs.clear();
-  } catch (e) {
-    console.error(e);
-    alert('Ralat semasa memadam lagu.');
-  }
-};
-
-const bulkDeleteSearchInput = document.getElementById('bulk-delete-search-input');
-if (bulkDeleteSearchInput) {
-  bulkDeleteSearchInput.addEventListener('input', (e) => {
-    bulkDeleteSearchQuery = e.target.value;
-    renderBulkDeleteSongs();
-  });
-}

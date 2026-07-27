@@ -577,7 +577,7 @@ body {
 
 .track-table-header {
   display: grid;
-  grid-template-columns: 40px 48px 1fr 160px 80px 40px 40px;
+  grid-template-columns: 28px 40px 48px 1fr 160px 80px 40px 40px;
   align-items: center;
   gap: 16px;
   padding: 8px 16px;
@@ -600,6 +600,48 @@ body {
   transition: var(--transition);
   cursor: pointer;
   max-width: 100%;
+}
+
+.song-select-cell {
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.song-select-cell input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--spotify-green);
+  cursor: pointer;
+}
+
+.song-card.selected-for-delete {
+  background: rgba(30, 215, 96, 0.1);
+  outline: 1px solid rgba(30, 215, 96, 0.35);
+}
+
+.selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.selection-actions[hidden],
+#selection-mode-btn[hidden] {
+  display: none;
+}
+
+.selection-delete-btn {
+  color: var(--text-negative);
+  background: rgba(243, 114, 127, 0.12);
+  border: 1px solid rgba(243, 114, 127, 0.25);
+}
+
+.selection-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .song-card > * {
@@ -1426,6 +1468,11 @@ body {
 
   .song-num, .song-album, .song-duration {
     display: none !important;
+  }
+
+  .song-select-cell {
+    display: flex !important;
+    width: 20px;
   }
 
   .song-cover {
