@@ -384,12 +384,28 @@ app.delete('/api/songs/:id', async (req, res) => {
   const song = db.songs.find(s => s.id === req.params.id);
   if (!song) return res.status(404).json({ error: 'Song not found' });
 
-  const filePath = path.join(MUSIC_DIR, song.filename);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
+  const filePath = path.resolve(MUSIC_DIR, song.filename);
+  const musicDir = path.resolve(MUSIC_DIR);
+  if (path.dirname(filePath) !== musicDir) {
+    return res.status(400).json({ error: 'Invalid song file path' });
   }
+
+  try {
+    await fs.promises.unlink(filePath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.error(`Failed to delete file: ${filePath}`, error);
+      return res.status(500).json({ error: 'Failed to delete song file' });
+    }
+  }
+
+  db.playlists.forEach(playlist => {
+    playlist.songs = playlist.songs.filter(songId => songId !== song.id);
+  });
+  db.favorites = db.favorites.filter(songId => songId !== song.id);
+  saveDb();
   await scanMusicFiles();
-  res.json({ message: 'Lagu berjaya dipadam' });
+  res.json({ message: 'Lagu berjaya dipadam', songId: song.id });
 });
 
 // Bulk delete songs from disk library
@@ -399,24 +415,42 @@ app.post('/api/songs/bulk-delete', async (req, res) => {
     return res.status(400).json({ error: 'No song IDs provided' });
   }
 
-  let deletedCount = 0;
-  for (const sId of songIds) {
-    const song = db.songs.find(s => s.id === sId);
-    if (song) {
-      const filePath = path.join(MUSIC_DIR, song.filename);
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-          deletedCount++;
-        } catch (e) {
-          console.error(`Failed to delete file: ${filePath}`, e);
-        }
+  const songs = [...new Map(songIds.map(id => [id, db.songs.find(s => s.id === id)])).values()]
+    .filter(Boolean);
+  const deletedIds = [];
+  const failedIds = [];
+  const musicDir = path.resolve(MUSIC_DIR);
+
+  for (const song of songs) {
+    const filePath = path.resolve(MUSIC_DIR, song.filename);
+    if (path.dirname(filePath) !== musicDir) {
+      failedIds.push(song.id);
+      continue;
+    }
+    try {
+      await fs.promises.unlink(filePath);
+      deletedIds.push(song.id);
+    } catch (error) {
+      if (error.code === 'ENOENT') deletedIds.push(song.id);
+      else {
+        failedIds.push(song.id);
+        console.error(`Failed to delete file: ${filePath}`, error);
       }
     }
   }
 
+  const deletedSet = new Set(deletedIds);
+  db.playlists.forEach(playlist => {
+    playlist.songs = playlist.songs.filter(songId => !deletedSet.has(songId));
+  });
+  db.favorites = db.favorites.filter(songId => !deletedSet.has(songId));
+  if (deletedIds.length > 0) saveDb();
   await scanMusicFiles();
-  res.json({ message: `Berjaya memadam ${deletedCount} lagu`, count: deletedCount });
+  res.status(failedIds.length > 0 ? 207 : 200).json({
+    message: `Berjaya memadam ${deletedIds.length} lagu`,
+    count: deletedIds.length,
+    failedIds
+  });
 });
 
 // Start Server

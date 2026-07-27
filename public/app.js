@@ -632,8 +632,12 @@ async function deleteSong(songId) {
   if (!confirm('Adakah anda pasti mahu memadam lagu ini daripada laptop server?')) return;
 
   try {
-    await fetch(`/api/songs/${songId}`, { method: 'DELETE' });
-    fetchSongs();
+    const res = await fetch(`/api/songs/${encodeURIComponent(songId)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Delete failed');
+    await fetchSongs();
+    await fetchPlaylists();
+    alert(data.message || 'Lagu berjaya dipadam.');
   } catch (e) {
     alert('Gagal memadam lagu.');
   }
@@ -881,8 +885,9 @@ window.deleteSongFromLibrary = async function(songId) {
   const name = song ? song.title : 'lagu ini';
   if (!confirm(`Adakah anda pasti untuk memadam "${name}" secara KEKAL daripada simpanan laptop?`)) return;
   try {
-    const res = await fetch(`/api/songs/${songId}`, { method: 'DELETE' });
+    const res = await fetch(`/api/songs/${encodeURIComponent(songId)}`, { method: 'DELETE' });
     const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Delete failed');
     await fetchSongs();
     await fetchPlaylists();
     alert(data.message || 'Lagu berjaya dipadam!');
