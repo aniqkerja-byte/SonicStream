@@ -458,6 +458,7 @@ function initAudioPool() {
   state.activeAudio = elements.audio;
   state.audioPool.forEach(audio => {
     audio.preload = 'auto';
+    audio.playsInline = true;
     audio.addEventListener('timeupdate', () => {
       if (audio === state.activeAudio) updateProgress();
     });
@@ -469,6 +470,9 @@ function initAudioPool() {
     });
     audio.addEventListener('pause', () => {
       if (audio === state.activeAudio) setPlayingState(false);
+    });
+    audio.addEventListener('canplay', () => {
+      if (audio === state.activeAudio && state.isPlaying) schedulePreloadNextSong(true);
     });
   });
 }
@@ -492,12 +496,14 @@ function preloadNextSong() {
   preloadAudio.load();
 }
 
-function schedulePreloadNextSong() {
+function schedulePreloadNextSong(isReady = false) {
   clearTimeout(state.preloadTimer);
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const isSlowConnection = connection && (connection.saveData || ['slow-2g', '2g'].includes(connection.effectiveType));
+  const delay = isReady ? (isSlowConnection ? 1800 : 250) : 2500;
   state.preloadTimer = setTimeout(() => {
-    // Do not compete with the first seconds of playback, especially on mobile.
     if (state.isPlaying) preloadNextSong();
-  }, 2500);
+  }, delay);
 }
 
 function playSongIndex(index) {
@@ -511,7 +517,7 @@ function playSongIndex(index) {
   const coverUrl = `/api/cover/${song.id}`;
 
   const streamAbsoluteUrl = new URL(streamUrl, window.location.href).href;
-  const preparedAudio = state.audioPool.find(audio => audio !== state.activeAudio && audio.src === streamAbsoluteUrl && audio.readyState >= 3);
+  const preparedAudio = state.audioPool.find(audio => audio !== state.activeAudio && audio.src === streamAbsoluteUrl);
   const previousAudio = state.activeAudio;
 
   if (preparedAudio) {
@@ -525,7 +531,8 @@ function playSongIndex(index) {
     state.activeAudio = elements.audio;
   }
 
-  elements.audio.play().catch(error => console.warn('Audio playback could not start:', error));
+  const playback = elements.audio.play();
+  if (playback) playback.catch(error => console.warn('Audio playback could not start:', error));
 
   // Update UI Elements
   elements.playerTitle.textContent = song.title;

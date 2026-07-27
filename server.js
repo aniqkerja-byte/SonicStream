@@ -257,8 +257,11 @@ app.get('/api/stream/:id', (req, res) => {
   res.set({
     'Accept-Ranges': 'bytes',
     'Cache-Control': 'public, max-age=31536000, immutable',
+    'CDN-Cache-Control': 'public, max-age=31536000, immutable',
+    'Content-Encoding': 'identity',
     'Last-Modified': lastModified,
     ETag: etag,
+    'Access-Control-Expose-Headers': 'Accept-Ranges, Content-Length, Content-Range, Content-Type, ETag, Last-Modified',
     'X-Content-Type-Options': 'nosniff'
   });
 
@@ -271,7 +274,7 @@ app.get('/api/stream/:id', (req, res) => {
     }
     const end = Math.min(requestedEnd, fileSize - 1);
     const chunksize = (end - start) + 1;
-    const file = fs.createReadStream(filePath, { start, end });
+    const file = fs.createReadStream(filePath, { start, end, highWaterMark: 1024 * 1024 });
 
     const head = {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
@@ -287,7 +290,7 @@ app.get('/api/stream/:id', (req, res) => {
       'Content-Type': contentType,
     };
     res.writeHead(200, head);
-    fs.createReadStream(filePath).pipe(res);
+    fs.createReadStream(filePath, { highWaterMark: 1024 * 1024 }).pipe(res);
   }
 });
 
