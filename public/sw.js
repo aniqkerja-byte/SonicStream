@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sonicstream-cache-v27';
+const CACHE_NAME = 'sonicstream-cache-v28';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -6,9 +6,7 @@ const ASSETS_TO_CACHE = [
   '/app.js?v=10.2',
   '/default-cover.svg',
   '/icon.png',
-  '/register-sw.js?v=1.0',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
-  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap'
+  '/register-sw.js?v=1.0'
 ];
 
 // Install Event
@@ -46,6 +44,7 @@ self.addEventListener('fetch', event => {
   if (event.request.url.includes('/api/')) return;
   
   const requestUrl = new URL(event.request.url);
+  if (requestUrl.origin !== self.location.origin) return;
   if (requestUrl.pathname === '/' || requestUrl.pathname.endsWith('/index.html')) {
     event.respondWith(fetch(event.request, { cache: 'no-store' }).catch(() => caches.match(event.request)));
     return;
