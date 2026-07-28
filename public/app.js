@@ -293,7 +293,9 @@ function renderSongList() {
 
     return `
       <div class="song-card ${isCurrent ? 'playing' : ''} ${isSelected ? 'selected-for-delete' : ''}" data-index="${index}" onclick="${state.selectionMode ? `toggleSongSelection('${song.id}')` : `playSongIndex(${index})`}">
-        ${state.selectionMode ? `<div class="song-select-cell" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Pilih ${escapeHtml(song.title)}" ${isSelected ? 'checked' : ''} onchange="toggleSongSelection('${song.id}', this.checked)"></div>` : ''}
+        <div class="song-select-cell" onclick="event.stopPropagation()">
+          ${state.selectionMode ? `<input type="checkbox" aria-label="Pilih ${escapeHtml(song.title)}" ${isSelected ? 'checked' : ''} onchange="toggleSongSelection('${song.id}', this.checked)">` : ''}
+        </div>
         <div class="song-num">
           ${isPlaying ? '<i class="fa-solid fa-chart-simple fa-beat" style="color:var(--spotify-green)"></i>' : (index + 1)}
         </div>
@@ -307,15 +309,13 @@ function renderSongList() {
         <button class="icon-btn-ghost" onclick="event.stopPropagation(); showAddPlaylistModal('${song.id}')" title="Tambah ke Playlist">
           <i class="fa-solid fa-plus"></i>
         </button>
-        <button class="icon-btn-ghost" onclick="event.stopPropagation(); deleteSongFromLibrary('${song.id}')" title="Padam dari Laptop" style="color:var(--text-subdued);">
-          <i class="fa-solid fa-trash-can"></i>
-        </button>
         <button class="icon-btn-ghost ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${song.id}')">
           <i class="${isFav ? 'fa-solid' : 'fa-regular'} fa-heart"></i>
         </button>
-        <button class="icon-btn-ghost" onclick="event.stopPropagation(); deleteSong('${song.id}')" title="Padam Lagu">
-          <i class="fa-regular fa-trash-can"></i>
+        <button class="icon-btn-ghost" onclick="event.stopPropagation(); deleteSongFromLibrary('${song.id}')" title="Padam dari Laptop" style="color:var(--text-subdued);">
+          <i class="fa-solid fa-trash-can"></i>
         </button>
+        <span class="song-action-spacer" aria-hidden="true"></span>
       </div>
     `;
   }).join('');
@@ -335,7 +335,7 @@ function updateSelectionControls() {
 
   if (actions) actions.hidden = !state.selectionMode;
   if (selectionButton) selectionButton.hidden = state.selectionMode;
-  if (header) header.hidden = !state.selectionMode;
+  if (header) header.classList.toggle('selection-mode-active', state.selectionMode);
   if (selectAllCheckbox) {
     selectAllCheckbox.checked = allSelected;
     selectAllCheckbox.indeterminate = !allSelected && visibleIds.some(id => state.selectedSongIds.has(id));
@@ -419,6 +419,7 @@ function renderFavoritesList() {
 
     return `
       <div class="song-card ${isCurrent ? 'playing' : ''}" onclick="playSpecificSong('${song.id}')">
+        <div class="song-select-cell" aria-hidden="true"></div>
         <div class="song-num">${index + 1}</div>
         <img class="song-cover" src="${coverUrl}" alt="Cover" onerror="this.src='default-cover.svg'">
         <div class="song-details">
@@ -434,8 +435,9 @@ function renderFavoritesList() {
           <i class="fa-solid fa-heart"></i>
         </button>
         <button class="icon-btn-ghost" onclick="event.stopPropagation(); deleteSong('${song.id}')">
-          <i class="fa-regular fa-trash-can"></i>
+          <i class="fa-solid fa-trash-can"></i>
         </button>
+        <span class="song-action-spacer" aria-hidden="true"></span>
       </div>
     `;
   }).join('');
@@ -1069,6 +1071,7 @@ function renderPlaylistSongs(pl) {
     
     return `
       <div class="song-card ${isCurrent ? 'playing' : ''}" onclick="playSpecificSong('${song.id}')">
+        <div class="song-select-cell" aria-hidden="true"></div>
         <div class="song-num">${index + 1}</div>
         <img class="song-cover" src="${coverUrl}" alt="Cover" onerror="this.src='default-cover.svg'">
         <div class="song-details">
@@ -1080,6 +1083,9 @@ function renderPlaylistSongs(pl) {
         <button class="icon-btn-ghost" onclick="event.stopPropagation(); removeSongFromPlaylist('${song.id}')" title="Buang dari Playlist">
           <i class="fa-solid fa-minus"></i>
         </button>
+        <span class="song-action-spacer" aria-hidden="true"></span>
+        <span class="song-action-spacer" aria-hidden="true"></span>
+        <span class="song-action-spacer" aria-hidden="true"></span>
       </div>
     `;
   }).join('');
