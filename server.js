@@ -61,7 +61,7 @@ app.use(cors({
     if (!origin || ALLOWED_ORIGINS.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error('Origin tidak dibenarkan'));
+    return callback(new Error('Origin is not allowed'));
   },
   credentials: false
 }));
@@ -73,30 +73,30 @@ const writeRateLimit = rateLimit({
   limit: 120,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  message: { error: { code: 'RATE_LIMITED', message: 'Terlalu banyak request. Cuba lagi kemudian.' } }
+  message: { error: { code: 'RATE_LIMITED', message: 'Too many requests. Try again later.' } }
 });
 const uploadRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  message: { error: { code: 'UPLOAD_RATE_LIMITED', message: 'Terlalu banyak upload. Cuba lagi kemudian.' } }
+  message: { error: { code: 'UPLOAD_RATE_LIMITED', message: 'Too many uploads. Try again later.' } }
 });
 const readRateLimit = rateLimit({
   windowMs: 60 * 1000,
   limit: 240,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  message: { error: { code: 'READ_RATE_LIMITED', message: 'Terlalu banyak request.' } }
+  message: { error: { code: 'READ_RATE_LIMITED', message: 'Too many requests.' } }
 });
 
 function authRequired(req, res, next) {
   if (!API_KEY) {
-    return res.status(503).json({ error: { code: 'AUTH_NOT_CONFIGURED', message: 'API_KEY belum dikonfigurasi pada server.' } });
+    return res.status(503).json({ error: { code: 'AUTH_NOT_CONFIGURED', message: 'API_KEY is not configured on the server.' } });
   }
   const suppliedKey = req.get('x-api-key') || (req.get('authorization') || '').replace(/^Bearer\s+/i, '');
   const valid = suppliedKey && suppliedKey.length === API_KEY.length && crypto.timingSafeEqual(Buffer.from(suppliedKey), Buffer.from(API_KEY));
-  if (!valid) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication diperlukan.' } });
+  if (!valid) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication is required.' } });
   return next();
 }
 
@@ -127,7 +127,7 @@ const upload = multer({
     if (file.originalname.match(allowedTypes)) {
       return cb(null, true);
     }
-    cb(requestError(400, 'INVALID_EXTENSION', 'Format fail audio tidak disokong.'));
+    cb(requestError(400, 'INVALID_EXTENSION', 'Unsupported audio file format.'));
   }
 });
 
@@ -135,8 +135,8 @@ const upload = multer({
 let db = {
   songs: [],
   playlists: [
-    { id: 'favs', name: 'Lagu Kegemaran ❤️', songs: [] },
-    { id: 'chill', name: 'Chill Vibes ☕', songs: [] }
+    { id: 'favs', name: 'Favorites ❤️', songs: [] },
+   { id: 'chill', name: 'Chill Vibes ☕', songs: [] }
   ],
   favorites: []
 };
@@ -188,7 +188,7 @@ function getFileId(filename) {
   return 's_' + Math.abs(hash).toString(36) + '_' + Buffer.from(filename).toString('hex').slice(0, 8);
 }
 
-// Scan Music Folder
+// Scan music folder
 async function scanMusicFiles() {
   if (scanPromise) return scanPromise;
   scanPromise = scanMusicFilesInternal();
@@ -220,8 +220,8 @@ async function scanMusicFilesInternal() {
       }
 
       let title = path.parse(file).name.replace(/_/g, ' ');
-      let artist = 'Artis Tidak Diketahui';
-      let album = 'Album Tidak Diketahui';
+      let artist = 'Unknown Artist';
+      let album = 'Unknown Album';
       let duration = 0;
       let year = null;
       let genre = null;
@@ -431,12 +431,12 @@ app.post('/api/upload', authRequired, uploadRateLimit, upload.array('songs', 20)
       const allowedMime = /^audio\/(mpeg|mp4|x-m4a|flac|wav|aac|ogg|webm|opus|x-ms-wma)$/i;
       if (!detected || !allowedMime.test(detected.mime)) {
         await Promise.all((req.files || []).map(uploaded => fs.promises.unlink(uploaded.path).catch(() => {})));
-        return res.status(400).json({ error: { code: 'INVALID_AUDIO', message: 'Fail bukan audio yang disokong.' } });
+        return res.status(400).json({ error: { code: 'INVALID_AUDIO', message: 'The file is not a supported audio format.' } });
       }
     }
   scheduleMusicScan();
   res.status(202).json({
-    message: 'Lagu berjaya diterima. Senarai lagu sedang dikemas kini...',
+    message: 'Songs accepted. The library is being updated...',
     uploaded: req.files ? req.files.length : 0
   });
   } catch (error) { next(error); }
@@ -573,7 +573,7 @@ app.delete('/api/songs/:id', authRequired, writeRateLimit, async (req, res, _nex
   db.favorites = db.favorites.filter(songId => songId !== song.id);
   saveDb();
   await scanMusicFiles();
-  res.json({ message: 'Lagu berjaya dipadam', songId: song.id });
+  res.json({ message: 'Song deleted successfully', songId: song.id });
 });
 
 // Bulk delete songs from disk library
@@ -615,7 +615,7 @@ app.post('/api/songs/bulk-delete', authRequired, writeRateLimit, async (req, res
   if (deletedIds.length > 0) saveDb();
   await scanMusicFiles();
   res.status(failedIds.length > 0 ? 207 : 200).json({
-    message: `Berjaya memadam ${deletedIds.length} lagu`,
+    message: `Successfully deleted ${deletedIds.length} song(s)`,
     count: deletedIds.length,
     failedIds
   });
@@ -624,13 +624,13 @@ app.post('/api/songs/bulk-delete', authRequired, writeRateLimit, async (req, res
 app.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
   if (err instanceof multer.MulterError) {
-    const message = err.code === 'LIMIT_FILE_SIZE' ? 'Fail melebihi had saiz upload.' : 'Upload tidak sah.';
+    const message = err.code === 'LIMIT_FILE_SIZE' ? 'File exceeds the upload size limit.' : 'Invalid upload.';
     return res.status(400).json({ error: { code: err.code, message } });
   }
   if (err.status && err.code) return res.status(err.status).json({ error: { code: err.code, message: err.message } });
-  if (err.message === 'Origin tidak dibenarkan') return res.status(403).json({ error: { code: 'CORS_FORBIDDEN', message: err.message } });
+  if (err.message === 'Origin is not allowed') return res.status(403).json({ error: { code: 'CORS_FORBIDDEN', message: err.message } });
   console.error('Unhandled request error:', err);
-  return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Ralat dalaman server.' } });
+  return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error.' } });
 });
 
 // Start Server

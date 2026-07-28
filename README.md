@@ -1,96 +1,96 @@
-# 🎵 SonicStream - Platform Penstriman Muzik Laptop Ke Telefon
+# 🎵 SonicStream - Laptop-to-Phone Music Streaming Platform
 
-Tahniah! Platform penstriman muzik **SonicStream** telah siap dibina khas untuk laptop anda. Laptop anda kini berfungsi sebagai **Media Server**, dan anda boleh mendengar serta mengawal semua lagu simpanan laptop terus dari telefon pintar di mana-mana sahaja.
-
----
-
-## 🌟 Ciri-Ciri Utama Platform
-- **Self-Hosted Laptop Server**: Menyimpan semua lagu (MP3, M4A, FLAC, WAV, OGG) dalam laptop anda tanpa sebarang yuran bulanan.
-- **Cloudflare Tunnel Access**: Capaian telefon dari mana-mana sahaja secara percuma & selamat (HTTPS) tanpa perlukan Public IP atau Port Forwarding.
-- **Auto-Sync Folder**: Tambah/salin lagu terus ke folder `music/` di laptop, dan senarai lagu di web/phone akan dikemas kini secara automatik.
-- **UI Kualiti Premium & Responsive**: Antaramuka moden ala-Spotify/Apple Music dengan mod gelap, sokongan skrin sentuh telefon, dan paparan laci *full-screen player*.
-- **Kawalan Lockscreen Telefon (MediaSession API)**: Boleh `Play`, `Pause`, `Next`, `Previous` terus dari *Lockscreen* telefon atau *Bluetooth audio* kereta/headphone.
-- **Web Audio Visualizer**: Graf audio dinamik semasa lagu dimainkan.
+**SonicStream** turns your laptop into a self-hosted **media server**, allowing you to stream and control your music library from any phone or browser.
 
 ---
 
-## 🚀 Cara Menjalankan Server di Laptop
+## 🌟 Key Features
+- **Self-Hosted Laptop Server**: Store MP3, M4A, FLAC, WAV, and OGG files on your laptop with no monthly fees.
+- **Cloudflare Tunnel Access**: Secure HTTPS access from anywhere without a public IP or port forwarding.
+- **Auto-Sync Folder**: Add or copy songs to the laptop's `music/` folder and the web library updates automatically.
+- **Premium Responsive UI**: A modern Spotify/Apple Music-inspired dark interface with touch support and a full-screen player drawer.
+- **Phone Lock Screen Controls (MediaSession API)**: Control playback from your phone lock screen or Bluetooth car/headphone audio.
+- **Web Audio Visualizer**: See a dynamic audio visualizer while music is playing.
 
-### Step 1: Jalankan Server Utama
-Buka Terminal di laptop dan jalankan:
+---
+
+## 🚀 Running the Server
+
+### Step 1: Start the Main Server
+Open PowerShell in the project folder and run:
 ```powershell
-cd "C:\Users\<nama-user>\SonicStream"
-$env:API_KEY="gantikan-dengan-kunci-rahsia-panjang"
+cd "C:\Users\<username>\SonicStream"
+$env:API_KEY="replace-with-a-long-random-secret"
 $env:ALLOWED_ORIGINS="http://localhost:3000,https://music.jomtek.my"
 npm start
 ```
-> Server akan berjalan di pautan tempatan: `http://localhost:3000`
+> The server will be available at `http://localhost:3000`.
 
 ### Environment Variables
 - `PORT` - Port HTTP server, default `3000`.
-- `MUSIC_DIR` - Folder library muzik, default `./music`.
-- `API_KEY` - Wajib untuk upload, delete, sync, favorite, dan playlist. Jangan commit key ini.
-- `ALLOWED_ORIGINS` - Senarai origin dipisahkan koma. Default membenarkan localhost dan `https://music.jomtek.my`.
-- `MAX_UPLOAD_SIZE` - Had saiz fail dalam bytes, default 1 GB.
-- `NODE_ENV=production` - Aktifkan HSTS ketika server berada di belakang HTTPS.
+- `MUSIC_DIR` - Music library folder, default `./music`.
+- `API_KEY` - Required for uploads, deletes, sync, favorites, and playlists. Never commit this key.
+- `ALLOWED_ORIGINS` - Comma-separated allowed origins. Defaults to localhost and `https://music.jomtek.my`.
+- `MAX_UPLOAD_SIZE` - File size limit in bytes, default 1 GB.
+- `NODE_ENV=production` - Enables HSTS when the server is behind HTTPS.
 
-Frontend akan meminta API key apabila mutation pertama dibuat dan menyimpannya dalam `localStorage` browser. Untuk keselamatan tambahan, gunakan Cloudflare Access atau private tunnel.
+The frontend asks for the API key when the first mutation is made and stores it in browser `localStorage`. For additional security, use Cloudflare Access or a private tunnel.
 
 ---
 
-## 📱 Cara Sambungkan Telefon Anda (Cloudflare Free Tunnel)
+## 📱 Connect Your Phone (Cloudflare Tunnel)
 
-### Cara 1: Akses Dari Mana-Mana Sahaja (Luar Rumah / Internet 4G/5G)
-Gunakan **Cloudflare Tunnel** yang telah dipasang pada laptop anda:
+### Method 1: Access Anywhere (Outside Home / 4G/5G)
+Use the **Cloudflare Tunnel** configured on the laptop:
 
-1. Buka satu tab Terminal baharu di laptop dan jalankan:
+1. Open a new terminal tab on the laptop and run:
    ```bash
    cloudflared tunnel --url http://localhost:3000
    ```
-2. Cloudflare akan menjana URL percuma dengan HTTPS seperti berikut:
+2. Cloudflare will generate a free HTTPS URL like this:
    ```text
    +-----------------------------------------------------------------------------------+
    | Your quick Tunnel has been created! Visit it at:                                  |
    | https://random-subdomain.trycloudflare.com                                       |
    +-----------------------------------------------------------------------------------+
    ```
-3. Buka pautan `https://xxxx.trycloudflare.com` tersebut di pelayar (Chrome/Safari) telefon anda!
+3. Open the `https://xxxx.trycloudflare.com` URL in Chrome or Safari on your phone.
 
 ---
 
-### Cara 2: Akses Dalam Rumah (Wi-Fi Yang Sama)
-Jika laptop & telefon anda bersambung pada Wi-Fi rumah yang sama:
-1. Buka pelayar telefon dan taipkan alamat IP Laptop anda:
+### Method 2: Local Access (Same Wi-Fi)
+If the laptop and phone are connected to the same Wi-Fi network:
+1. Open a browser on your phone and enter the laptop IP address:
    ```text
    http://192.168.0.21:3000
    ```
-2. Anda juga boleh tekan butang **"Sambung Phone"** pada web laptop untuk mengimbas **QR Code** terus menggunakan kamera telefon!
+2. You can also use the **Connect Phone** button on the laptop web app to scan a QR code with your phone camera.
 
 ---
 
-## 📁 Cara Memasukkan Lagu Ke Laptop Server
+## 📁 Adding Songs to the Server
 
-### Kaedah A: Copy-Paste Terus Dalam Laptop (Paling Laju)
-Salin fail lagu (MP3, WAV, FLAC, M4A) terus ke dalam folder ini di laptop anda:
+### Method A: Copy Directly to the Laptop
+Copy MP3, WAV, FLAC, or M4A files directly into this folder:
 ```text
 ./music
 ```
-> Server akan **auto-detect** lagu baharu tanpa perlu *restart* server!
+> The server will **auto-detect** new songs without a restart.
 
-### Kaedah B: Muat Naik Dari Web UI (Laptop atau Phone)
-1. Buka web SonicStream di laptop atau phone.
-2. Klik pada menu **"Muat Naik Lagu"**.
-3. Drag & drop atau pilih fail audio dari telefon/laptop anda.
+### Method B: Upload from the Web UI
+1. Open SonicStream on the laptop or phone.
+2. Open the **Upload Songs** menu.
+3. Drag and drop or choose audio files from your phone or laptop.
 
 ---
 
-## 🛠️ Struktur Projek
-- `server.js` - Server Express backend untuk audio streaming, range requests, metadata scanner, dan upload.
-- `public/` - Antaramuka web player (HTML5, Vanilla CSS Glassmorphism, Web Audio API, MediaSession).
-- `music/` - Folder simpanan utama semua fail lagu anda.
-- `generate-sample-music.js` - Skrip penjana lagu contoh tempatan.
+## 🛠️ Project Structure
+- `server.js` - Express backend for audio streaming, range requests, metadata scanning, and uploads.
+- `public/` - Web player interface (HTML5, vanilla CSS glassmorphism, Web Audio API, MediaSession).
+- `music/` - Main folder for your music library.
+- `generate-sample-music.js` - Local sample music generator.
 
-## 🧪 Semakan Kod
+## 🧪 Code Checks
 
 ```powershell
 npm test
@@ -99,11 +99,11 @@ npm run check
 npm audit
 ```
 
-Database ditulis secara atomic ke `data/db.json` dan backup terakhir disimpan sebagai `data/db.json.bak`. Fail database, muzik, dan credential tidak disimpan dalam git.
+The database is written atomically to `data/db.json`, with the latest backup stored as `data/db.json.bak`. Database, music, and credential files are not stored in git.
 
-## 🔒 Nota Production
+## 🔒 Production Notes
 
-- Jangan jalankan server public tanpa `API_KEY`.
-- Jangan dedahkan port Node terus ke internet; gunakan Cloudflare Tunnel atau reverse proxy HTTPS.
-- Pastikan fail credentials Cloudflare disimpan di luar repository.
-- Backup folder `music/` dan `data/db.json` secara berkala.
+- Do not run the public server without `API_KEY`.
+- Do not expose the Node port directly to the internet; use Cloudflare Tunnel or an HTTPS reverse proxy.
+- Keep Cloudflare credential files outside the repository.
+- Back up the `music/` folder and `data/db.json` regularly.

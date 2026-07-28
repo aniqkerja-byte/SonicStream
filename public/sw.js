@@ -1,9 +1,9 @@
-const CACHE_NAME = 'sonicstream-cache-v28';
+const CACHE_NAME = 'sonicstream-cache-v29';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/style.css?v=10.0',
-  '/app.js?v=10.2',
+  '/style.css?v=10.1',
+  '/app.js?v=10.3',
   '/default-cover.svg',
   '/icon.png',
   '/register-sw.js?v=1.0'

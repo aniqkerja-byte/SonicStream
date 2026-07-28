@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ms">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="style.css?v=10.0">
+  <link rel="stylesheet" href="style.css?v=10.1">
   <link rel="icon" type="image/png" sizes="any" href="icon.png">
   <link rel="shortcut icon" type="image/png" href="icon.png">
   
@@ -40,19 +40,19 @@
 
       <div class="sidebar-box nav-menu">
         <button class="nav-item active" data-tab="all-songs">
-          <i class="fa-solid fa-house"></i> <span>Semua Lagu</span>
+           <i class="fa-solid fa-house"></i> <span>All Songs</span>
         </button>
 
         <button class="nav-item" data-tab="favorites">
-          <i class="fa-solid fa-heart"></i> <span>Kegemaran</span>
+           <i class="fa-solid fa-heart"></i> <span>Favorites</span>
         </button>
 
         <button class="nav-item" data-tab="playlists">
-          <i class="fa-solid fa-list-ul"></i> <span>Playlist Saya</span>
+           <i class="fa-solid fa-list-ul"></i> <span>My Playlists</span>
         </button>
 
         <button class="nav-item" data-tab="upload">
-          <i class="fa-solid fa-cloud-arrow-up"></i> <span>Muat Naik Lagu</span>
+           <i class="fa-solid fa-cloud-arrow-up"></i> <span>Upload Songs</span>
         </button>
       </div>
 
@@ -65,7 +65,7 @@
         <div class="card-info" id="server-info">
                <p><i class="fa-solid fa-globe"></i> <span>SonicStream</span></p>
           <p><i class="fa-solid fa-laptop"></i> <span id="info-hostname">Laptop Server</span></p>
-          <p><i class="fa-solid fa-database"></i> <span id="info-count">0 Lagu</span></p>
+          <p><i class="fa-solid fa-database"></i> <span id="info-count">0 Songs</span></p>
         </div>
       </div>
     </aside>
@@ -85,9 +85,9 @@
           </div>
 
           <div class="header-actions">
-           <button class="icon-btn" id="copy-live-url" title="Salin pautan SonicStream">
+           <button class="icon-btn" id="copy-live-url" title="Copy SonicStream link">
               <i class="fa-solid fa-globe"></i>
-               <span class="btn-label">Salin pautan</span>
+               <span class="btn-label">Copy link</span>
               <i class="fa-regular fa-copy" style="font-size:11px; margin-left:2px;"></i>
             </button>
           </div>
@@ -96,7 +96,7 @@
         <div class="header-search-row">
           <div class="search-box">
             <i class="fa-solid fa-magnifying-glass search-icon"></i>
-            <input type="text" id="search-input" placeholder="Cari lagu, artis, atau album...">
+            <input type="text" id="search-input" placeholder="Search songs, artists, or albums...">
             <button class="clear-search" id="clear-search" style="display:none;">
               <i class="fa-solid fa-xmark"></i>
             </button>
@@ -111,15 +111,15 @@
         <section class="tab-content active" id="tab-all-songs">
           <div class="section-hero">
             <div class="hero-content">
-              <div class="hero-tag"><i class="fa-solid fa-laptop-code"></i> Koleksi Laptop • <span id="total-songs-val">0</span> Lagu</div>
-              <h1>Perpustakaan Muzik Laptop</h1>
-              <p>Strim secara terus dari simpanan laptop anda dengan audio kualiti tinggi tanpa sebarang had.</p>
+              <div class="hero-tag"><i class="fa-solid fa-laptop-code"></i> Laptop Collection • <span id="total-songs-val">0</span> Songs</div>
+              <h1>Laptop Music Library</h1>
+              <p>Stream directly from your laptop storage with high-quality audio and no limits.</p>
               <div class="hero-actions">
                 <button class="btn btn-primary" id="play-all-btn">
-                  <i class="fa-solid fa-play"></i> Mainkan Semua
+                  <i class="fa-solid fa-play"></i> Play All
                 </button>
                 <button class="btn btn-secondary" id="shuffle-all-btn">
-                  <i class="fa-solid fa-shuffle"></i> Rawak
+                  <i class="fa-solid fa-shuffle"></i> Shuffle
                 </button>
               </div>
             </div>
@@ -128,21 +128,21 @@
           <!-- Controls Bar -->
           <div class="controls-bar">
             <div class="filter-group">
-              <button class="chip active" data-filter="all">Semua</button>
-              <button class="chip" data-filter="recent">Terbaharu</button>
-              <button class="chip" id="selection-mode-btn"><i class="fa-solid fa-check-square"></i> Pilih</button>
+              <button class="chip active" data-filter="all">All</button>
+              <button class="chip" data-filter="recent">Recent</button>
+              <button class="chip" id="selection-mode-btn"><i class="fa-solid fa-check-square"></i> Select</button>
               <div class="selection-actions" id="selection-actions" hidden>
-                <button class="chip" id="select-all-songs-btn"><i class="fa-solid fa-check-double"></i> Pilih Semua</button>
-                <button class="chip selection-delete-btn" id="delete-selected-btn" disabled><i class="fa-solid fa-trash-can"></i> Padam Terpilih <span id="selected-songs-count">(0)</span></button>
-                <button class="chip" id="cancel-selection-btn">Batal</button>
+                <button class="chip" id="select-all-songs-btn"><i class="fa-solid fa-check-double"></i> Select All</button>
+                <button class="chip selection-delete-btn" id="delete-selected-btn" disabled><i class="fa-solid fa-trash-can"></i> Delete Selected <span id="selected-songs-count">(0)</span></button>
+                <button class="chip" id="cancel-selection-btn">Cancel</button>
               </div>
             </div>
             <div class="sort-group">
-              <label for="sort-select"><i class="fa-solid fa-arrow-down-short-wide"></i> Susun:</label>
+              <label for="sort-select"><i class="fa-solid fa-arrow-down-short-wide"></i> Sort:</label>
               <select id="sort-select">
-                <option value="title">Tajuk (A-Z)</option>
-                <option value="artist">Artis</option>
-                <option value="newest">Terbaharu Diisi</option>
+                <option value="title">Title (A-Z)</option>
+                <option value="artist">Artist</option>
+                <option value="newest">Recently Added</option>
               </select>
             </div>
           </div>
@@ -150,13 +150,13 @@
           <!-- Spotify Tracklist Header -->
           <div class="track-table-header">
             <div id="song-select-header" class="song-select-cell">
-                <input type="checkbox" id="select-all-songs-checkbox" aria-label="Pilih semua lagu">
+                <input type="checkbox" id="select-all-songs-checkbox" aria-label="Select all songs">
             </div>
             <div>#</div>
             <div></div>
-            <div>TAJUK</div>
+                <div>TITLE</div>
             <div>ALBUM</div>
-            <div>MASA</div>
+                <div>DURATION</div>
             <div></div>
             <div></div>
             <div></div>
@@ -167,7 +167,7 @@
           <div class="song-list" id="song-list">
             <div class="loading-state">
               <i class="fa-solid fa-circle-notch fa-spin"></i>
-              <p>Memuatkan senarai lagu...</p>
+              <p>Loading your songs...</p>
             </div>
           </div>
         </section>
@@ -176,8 +176,8 @@
         <section class="tab-content" id="tab-favorites">
           <div class="section-hero fav-hero">
             <div class="hero-text">
-              <h1>Lagu Kegemaran</h1>
-              <p>Senarai koleksi lagu pilihan utama anda di simpanan laptop.</p>
+              <h1>Favorite Songs</h1>
+              <p>Your favorite songs stored on the laptop server.</p>
             </div>
           </div>
 
@@ -205,9 +205,9 @@
           <!-- Playlists Main View -->
           <div id="playlists-main-view">
             <div class="controls-bar" style="margin-top:16px;">
-              <h2 style="font-size:20px; font-weight:700;">Playlist Saya</h2>
+              <h2 style="font-size:20px; font-weight:700;">My Playlists</h2>
               <button class="btn btn-primary" id="create-playlist-btn">
-                <i class="fa-solid fa-plus"></i> Playlist Baharu
+                <i class="fa-solid fa-plus"></i> New Playlist
               </button>
             </div>
             <div class="playlists-grid" id="playlists-grid">
@@ -220,22 +220,22 @@
             <div class="section-hero">
               <div class="hero-content">
                 <button class="icon-btn" id="back-to-playlists" style="align-self: flex-start; margin-bottom: 4px;">
-                  <i class="fa-solid fa-arrow-left"></i> Kembali ke Playlist
+                  <i class="fa-solid fa-arrow-left"></i> Back to Playlists
                 </button>
-                <div class="hero-tag"><i class="fa-solid fa-list-ul"></i> Playlist Peribadi</div>
-                <h1 id="pl-detail-name">Nama Playlist</h1>
-                <p id="pl-detail-desc">0 Lagu</p>
+                <div class="hero-tag"><i class="fa-solid fa-list-ul"></i> Personal Playlist</div>
+                <h1 id="pl-detail-name">Playlist Name</h1>
+                <p id="pl-detail-desc">0 Songs</p>
                 <div class="hero-actions">
                   <button class="btn btn-primary" id="play-playlist-btn">
-                    <i class="fa-solid fa-play"></i> Mainkan
+                    <i class="fa-solid fa-play"></i> Play
                   </button>
                   <button class="btn btn-secondary" id="open-bulk-add-btn">
-                    <i class="fa-solid fa-plus"></i> Tambah Lagu
+                    <i class="fa-solid fa-plus"></i> Add Songs
                   </button>
                   <button class="btn btn-secondary" id="open-bulk-remove-btn" style="border-color: rgba(243, 114, 127, 0.3); color: var(--text-negative);">
-                    <i class="fa-solid fa-minus"></i> Buang Lagu
+                    <i class="fa-solid fa-minus"></i> Remove Songs
                   </button>
-                  <button class="icon-btn-ghost" id="delete-playlist-btn" style="color:var(--text-negative); background: rgba(243, 114, 127, 0.1); width: 42px; height: 42px;" title="Padam Playlist">
+                  <button class="icon-btn-ghost" id="delete-playlist-btn" style="color:var(--text-negative); background: rgba(243, 114, 127, 0.1); width: 42px; height: 42px;" title="Delete Playlist">
                     <i class="fa-solid fa-trash"></i>
                   </button>
                 </div>
@@ -245,9 +245,9 @@
               <div class="song-select-cell" aria-hidden="true"></div>
               <div>#</div>
               <div></div>
-              <div>TAJUK</div>
+                <div>TITLE</div>
               <div>ALBUM</div>
-              <div>MASA</div>
+                <div>DURATION</div>
               <div></div>
               <div></div>
               <div></div>
@@ -265,11 +265,11 @@
             <div class="upload-card">
               <div class="upload-dropzone" id="dropzone">
                 <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
-                <h3>Tambah Lagu Ke Laptop Server</h3>
-                <p>Drag & drop fail MP3, M4A, FLAC, WAV di sini, atau klik butang di bawah.</p>
+                <h3>Add Songs to the Laptop Server</h3>
+                <p>Drag and drop MP3, M4A, FLAC, or WAV files here, or click the button below.</p>
                 <input type="file" id="file-input" multiple accept="audio/*" style="display:none;">
                 <button class="btn btn-primary" id="choose-audio-btn">
-                  <i class="fa-solid fa-folder-open"></i> Pilih Fail Audio
+                  <i class="fa-solid fa-folder-open"></i> Choose Audio Files
                 </button>
               </div>
 
@@ -277,13 +277,13 @@
             </div>
 
             <div class="info-card">
-              <h4><i class="fa-solid fa-lightbulb"></i> Cara Simpan Lagu Direct Dari Laptop</h4>
-              <p>Selain muat naik melalui web ini, anda juga boleh <b>copy-paste</b> fail audio (MP3, WAV, FLAC, etc) secara terus ke dalam folder ini di laptop anda:</p>
+                <h4><i class="fa-solid fa-lightbulb"></i> Save Songs Directly from the Laptop</h4>
+                <p>Besides uploading through this web app, you can also <b>copy and paste</b> audio files (MP3, WAV, FLAC, etc.) directly into this folder on the laptop:</p>
               <div class="code-box">
                 <code id="folder-path-display">./music</code>
                 <button class="btn-copy" id="copy-folder-btn"><i class="fa-regular fa-copy"></i></button>
               </div>
-              <p class="subtext">Lagu baharu yang dimasukkan ke dalam folder tersebut akan auto-sync secara automatik!</p>
+                <p class="subtext">New songs added to this folder will sync automatically!</p>
             </div>
           </div>
         </section>
@@ -300,10 +300,10 @@
           <img id="player-cover" src="default-cover.svg" data-fallback-cover alt="Album Cover">
         </div>
         <div class="current-details">
-          <h4 id="player-title">Belum ada lagu</h4>
-          <p id="player-artist">Pilih lagu untuk dimainkan</p>
+           <h4 id="player-title">No song playing</h4>
+           <p id="player-artist">Select a song to play</p>
         </div>
-        <button class="fav-btn icon-btn-ghost" id="player-fav-btn" title="Tambah Kegemaran">
+         <button class="fav-btn icon-btn-ghost" id="player-fav-btn" title="Add to Favorites">
           <i class="fa-regular fa-heart"></i>
         </button>
       </div>
@@ -312,10 +312,10 @@
       <div class="player-center">
         <div class="controls">
           <button class="ctrl-btn" id="btn-shuffle" title="Shuffle"><i class="fa-solid fa-shuffle"></i></button>
-          <button class="ctrl-btn" id="btn-prev" title="Sebelumnya"><i class="fa-solid fa-backward-step"></i></button>
-          <button class="ctrl-btn play-btn" id="btn-play-pause" title="Main / Jeda"><i class="fa-solid fa-play"></i></button>
-          <button class="ctrl-btn" id="btn-next" title="Seterusnya"><i class="fa-solid fa-forward-step"></i></button>
-          <button class="ctrl-btn" id="btn-repeat" title="Ulang"><i class="fa-solid fa-repeat"></i></button>
+           <button class="ctrl-btn" id="btn-prev" title="Previous"><i class="fa-solid fa-backward-step"></i></button>
+           <button class="ctrl-btn play-btn" id="btn-play-pause" title="Play / Pause"><i class="fa-solid fa-play"></i></button>
+           <button class="ctrl-btn" id="btn-next" title="Next"><i class="fa-solid fa-forward-step"></i></button>
+           <button class="ctrl-btn" id="btn-repeat" title="Repeat"><i class="fa-solid fa-repeat"></i></button>
         </div>
         
         <div class="progress-container">
@@ -341,7 +341,7 @@
           <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
         </div>
 
-        <button class="ctrl-btn expand-btn" id="expand-mobile-player" title="Buka Player Penuh">
+         <button class="ctrl-btn expand-btn" id="expand-mobile-player" title="Open Full Player">
           <i class="fa-solid fa-chevron-up"></i>
         </button>
       </div>
@@ -354,9 +354,9 @@
         <button class="close-mobile-player" id="close-mobile-player"><i class="fa-solid fa-chevron-down"></i></button>
         <div class="now-playing-label">
           <span class="now-playing-dot"></span>
-          <span class="modal-title">SEDANG DIMAINKAN</span>
+           <span class="modal-title">NOW PLAYING</span>
         </div>
-        <button class="icon-btn-sm visualizer-toggle" id="m-eq-btn" title="Hidupkan visualizer" aria-label="Hidupkan visualizer" aria-pressed="false">
+         <button class="icon-btn-sm visualizer-toggle" id="m-eq-btn" title="Enable visualizer" aria-label="Enable visualizer" aria-pressed="false">
           <i class="fa-solid fa-chart-simple"></i>
         </button>
       </div>
@@ -375,8 +375,8 @@
 
         <div class="m-track-info">
           <div class="m-text">
-            <h2 id="m-player-title">Belum ada lagu</h2>
-            <p id="m-player-artist">Pilih lagu untuk dimainkan</p>
+             <h2 id="m-player-title">No song playing</h2>
+             <p id="m-player-artist">Select a song to play</p>
           </div>
           <button class="fav-btn lg icon-btn-ghost" id="m-player-fav-btn">
             <i class="fa-regular fa-heart"></i>
@@ -415,14 +415,14 @@
     <div class="modal-overlay" id="add-to-playlist-modal" style="display:none;">
       <div class="modal-box">
         <div class="modal-header">
-          <h3>Tambah ke Playlist</h3>
+          <h3>Add to Playlist</h3>
           <button class="modal-close-btn" id="close-add-playlist-modal"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body" id="add-to-pl-list">
           <!-- dynamic items -->
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" id="close-add-playlist-btn">Tutup</button>
+          <button class="btn btn-secondary" id="close-add-playlist-btn">Close</button>
         </div>
       </div>
     </div>
@@ -434,21 +434,21 @@
           <div class="modal-heading-group">
             <div class="modal-icon"><i class="fa-solid fa-music"></i></div>
             <div>
-              <span class="modal-eyebrow">KOLEKSI ANDA</span>
-              <h3>Cipta Playlist Baharu</h3>
+              <span class="modal-eyebrow">YOUR COLLECTION</span>
+              <h3>Create New Playlist</h3>
             </div>
           </div>
-          <button class="modal-close-btn" id="close-create-playlist-modal" aria-label="Tutup"><i class="fa-solid fa-xmark"></i></button>
+           <button class="modal-close-btn" id="close-create-playlist-modal" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <form id="create-playlist-form">
           <div class="modal-body">
-            <label class="modal-label" for="playlist-name-input">Nama playlist</label>
-            <input class="modal-input" id="playlist-name-input" type="text" maxlength="80" placeholder="Contoh: Lagu Kegemaran Saya" autocomplete="off">
-            <p class="modal-hint">Berikan nama yang mudah dikenali untuk koleksi lagu anda.</p>
+            <label class="modal-label" for="playlist-name-input">Playlist name</label>
+            <input class="modal-input" id="playlist-name-input" type="text" maxlength="80" placeholder="Example: My Favorite Songs" autocomplete="off">
+            <p class="modal-hint">Choose a recognizable name for your song collection.</p>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-secondary" type="button" id="cancel-create-playlist">Batal</button>
-            <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> Cipta Playlist</button>
+            <button class="btn btn-secondary" type="button" id="cancel-create-playlist">Cancel</button>
+            <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> Create Playlist</button>
           </div>
         </form>
       </div>
@@ -461,12 +461,12 @@
           <div class="app-dialog-icon" id="app-dialog-icon"><i class="fa-solid fa-circle-info"></i></div>
           <div class="app-dialog-copy">
             <span class="modal-eyebrow" id="app-dialog-eyebrow">SONICSTREAM</span>
-            <h3 id="app-dialog-title">Makluman</h3>
+          <h3 id="app-dialog-title">Notice</h3>
             <p id="app-dialog-message"></p>
           </div>
         </div>
         <div class="app-dialog-actions">
-          <button class="btn btn-secondary" id="app-dialog-cancel" type="button">Batal</button>
+          <button class="btn btn-secondary" id="app-dialog-cancel" type="button">Cancel</button>
           <button class="btn btn-primary" id="app-dialog-confirm" type="button">OK</button>
         </div>
       </div>
@@ -476,19 +476,19 @@
     <div class="modal-overlay" id="bulk-add-modal" style="display:none;">
       <div class="modal-box">
         <div class="modal-header">
-          <h3>Pilih Lagu ke Playlist</h3>
+          <h3>Select Songs for Playlist</h3>
           <button class="modal-close-btn" id="close-bulk-add-modal"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
           <div style="position: relative; width: 100%;">
             <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-subdued); font-size: 14px;"></i>
-            <input type="text" id="bulk-search-input" placeholder="Cari tajuk atau penyanyi..." style="width: 100%; padding: 10px 14px 10px 38px; border-radius: var(--radius-pill); border: 1px solid var(--border-subtle); background: var(--bg-surface-elevated); color: white; font-size: 13px; outline: none;">
+             <input type="text" id="bulk-search-input" placeholder="Search titles or artists..." style="width: 100%; padding: 10px 14px 10px 38px; border-radius: var(--radius-pill); border: 1px solid var(--border-subtle); background: var(--bg-surface-elevated); color: white; font-size: 13px; outline: none;">
           </div>
           
           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
-            <span style="font-size: 12px; color: var(--text-subdued); font-weight: 600;" id="bulk-selection-status">Pilih lagu yang ingin ditambah:</span>
+             <span style="font-size: 12px; color: var(--text-subdued); font-weight: 600;" id="bulk-selection-status">Select songs to add:</span>
             <div style="display: flex; gap: 6px;">
-              <button class="chip" id="select-all-bulk-btn" style="padding: 4px 12px; font-size: 11px;">Pilih Semua</button>
+               <button class="chip" id="select-all-bulk-btn" style="padding: 4px 12px; font-size: 11px;">Select All</button>
               <button class="chip" id="reset-bulk-btn" style="padding: 4px 12px; font-size: 11px;">Reset</button>
             </div>
           </div>
@@ -498,8 +498,8 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" id="cancel-bulk-add-btn">Batal</button>
-          <button class="btn btn-primary" id="submit-bulk-add-btn">Simpan Lagu <span id="bulk-count">(0)</span></button>
+          <button class="btn btn-secondary" id="cancel-bulk-add-btn">Cancel</button>
+          <button class="btn btn-primary" id="submit-bulk-add-btn">Save Songs <span id="bulk-count">(0)</span></button>
         </div>
       </div>
     </div>
@@ -508,7 +508,7 @@
   <!-- Audio Element -->
   <audio id="audio-player" preload="auto" playsinline></audio>
 
-  <script src="app.js?v=10.2"></script>
+  <script src="app.js?v=10.3"></script>
   <script src="register-sw.js?v=1.0"></script>
 </body>
 </html>

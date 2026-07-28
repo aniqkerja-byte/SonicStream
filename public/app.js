@@ -42,7 +42,7 @@ async function apiFetch(url, options = {}) {
   try {
     const response = await fetch(url, { ...requestOptions, headers, signal: options.signal || controller.signal });
     if (response.status === 401 && !_authRetry && requestOptions.method && requestOptions.method.toUpperCase() !== 'GET') {
-      const enteredKey = window.prompt('Masukkan API key SonicStream untuk meneruskan tindakan:');
+      const enteredKey = window.prompt('Enter your SonicStream API key to continue:');
       if (enteredKey) {
         apiKey = enteredKey.trim();
         window.localStorage.setItem('sonicstream-api-key', apiKey);
@@ -53,11 +53,11 @@ async function apiFetch(url, options = {}) {
     const data = contentType.includes('application/json') ? await response.json() : await response.text();
     if (!response.ok) {
       const message = typeof data === 'object' && data?.error ? (data.error.message || data.error) : data;
-      throw new Error(message || `Request gagal (${response.status})`);
+      throw new Error(message || `Request failed (${response.status})`);
     }
     return data;
   } catch (error) {
-    if (error.name === 'AbortError') throw new Error('Request tamat masa. Semak sambungan server.');
+    if (error.name === 'AbortError') throw new Error('Request timed out. Check the server connection.');
     throw error;
   } finally {
     clearTimeout(timeout);
@@ -171,7 +171,7 @@ function initEvents() {
   document.getElementById('select-all-songs-checkbox')?.addEventListener('change', event => toggleSelectAllSongs(event.target.checked));
   document.getElementById('open-bulk-add-btn')?.addEventListener('click', openBulkAddModal);
   document.getElementById('open-bulk-remove-btn')?.addEventListener('click', () => {
-    showAppAlert('Fungsi buang banyak lagu belum tersedia.', 'Makluman', 'warning');
+    showAppAlert('Bulk song removal is not available yet.', 'Notice', 'warning');
   });
   document.getElementById('choose-audio-btn')?.addEventListener('click', () => elements.fileInput.click());
   document.getElementById('close-add-playlist-modal')?.addEventListener('click', closeAddPlaylistModal);
@@ -318,13 +318,13 @@ function initEvents() {
           fallback.remove();
         }
       } catch (_error) {
-        await showAppAlert('Pautan tidak dapat disalin pada browser ini.', 'Salinan gagal', 'warning');
+        await showAppAlert('The link could not be copied in this browser.', 'Copy failed', 'warning');
         return;
       }
       const label = copyBtn.querySelector('.btn-label');
       if (label) {
         const originalText = label.textContent;
-        label.textContent = 'Disalin!';
+        label.textContent = 'Copied!';
         setTimeout(() => label.textContent = originalText, 2000);
       }
     });
@@ -381,7 +381,7 @@ async function fetchServerStatus() {
     state.serverInfo = data;
     
     const hostnameEl = document.getElementById('info-hostname');
-    if (hostnameEl) hostnameEl.textContent = 'Server aktif';
+    if (hostnameEl) hostnameEl.textContent = 'Server online';
 
   } catch (e) {
     console.error('Error fetching server status:', e);
@@ -399,14 +399,14 @@ async function fetchSongs() {
     state.favorites = songs.filter(s => s.isFavorite).map(s => s.id);
     
     elements.totalSongsVal.textContent = songs.length;
-    document.getElementById('info-count').textContent = `${songs.length} Lagu`;
+    document.getElementById('info-count').textContent = `${songs.length} Song(s)`;
     
     renderSongList();
     renderFavoritesList();
     updateSelectionControls();
   } catch (e) {
     console.error('Error fetching songs:', e);
-    elements.songList.innerHTML = `<div class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i><p>Gagal memuatkan senarai lagu dari laptop server.</p></div>`;
+    elements.songList.innerHTML = `<div class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i><p>Failed to load songs from the laptop server.</p></div>`;
   }
 }
 
@@ -425,7 +425,7 @@ function renderSongList() {
     elements.songList.innerHTML = `
       <div class="empty-state" style="padding:48px; text-align:center; color:var(--text-subdued);">
         <i class="fa-solid fa-compact-disc" style="font-size:40px; margin-bottom:12px;"></i>
-        <p>Tiada lagu ditemui dalam perpustakaan anda.</p>
+        <p>No songs found in your library.</p>
       </div>
     `;
     return;
@@ -442,7 +442,7 @@ function renderSongList() {
     return `
       <div class="song-card ${isCurrent ? 'playing' : ''} ${isSelected ? 'selected-for-delete' : ''}" data-index="${index}" data-song-id="${escapeHtml(song.id)}">
         <div class="song-select-cell">
-          ${state.selectionMode ? `<input type="checkbox" data-action="select-song" data-song-id="${escapeHtml(song.id)}" aria-label="Pilih ${escapeHtml(song.title)}" ${isSelected ? 'checked' : ''}>` : ''}
+          ${state.selectionMode ? `<input type="checkbox" data-action="select-song" data-song-id="${escapeHtml(song.id)}" aria-label="Select ${escapeHtml(song.title)}" ${isSelected ? 'checked' : ''}>` : ''}
         </div>
         <div class="song-num">
           ${isPlaying ? '<i class="fa-solid fa-chart-simple fa-beat" style="color:var(--spotify-green)"></i>' : (index + 1)}
@@ -454,13 +454,13 @@ function renderSongList() {
         </div>
         <div class="song-album">${escapeHtml(song.album || '—')}</div>
         <div class="song-duration">${durationStr}</div>
-        <button class="icon-btn-ghost" data-action="add-playlist" data-song-id="${escapeHtml(song.id)}" title="Tambah ke Playlist">
+        <button class="icon-btn-ghost" data-action="add-playlist" data-song-id="${escapeHtml(song.id)}" title="Add to Playlist">
           <i class="fa-solid fa-plus"></i>
         </button>
         <button class="icon-btn-ghost ${isFav ? 'active' : ''}" data-action="favorite" data-song-id="${escapeHtml(song.id)}">
           <i class="${isFav ? 'fa-solid' : 'fa-regular'} fa-heart"></i>
         </button>
-        <button class="icon-btn-ghost" data-action="delete-song" data-song-id="${escapeHtml(song.id)}" title="Padam dari Laptop" style="color:var(--text-subdued);">
+        <button class="icon-btn-ghost" data-action="delete-song" data-song-id="${escapeHtml(song.id)}" title="Delete from Laptop" style="color:var(--text-subdued);">
           <i class="fa-solid fa-trash-can"></i>
         </button>
         <span class="song-action-spacer" aria-hidden="true"></span>
@@ -525,8 +525,8 @@ window.deleteSelectedSongs = async function() {
   const songIds = Array.from(state.selectedSongIds);
   if (songIds.length === 0) return;
 
-  const message = `Padam ${songIds.length} lagu terpilih secara kekal daripada laptop?`;
-  if (!await showAppConfirm(message, 'Padam lagu terpilih?', 'danger')) return;
+  const message = `Permanently delete ${songIds.length} selected song(s) from the laptop?`;
+  if (!await showAppConfirm(message, 'Delete selected songs?', 'danger')) return;
 
   try {
     const data = await apiFetch('/api/songs/bulk-delete', {
@@ -540,10 +540,10 @@ window.deleteSelectedSongs = async function() {
     await fetchSongs();
     await fetchPlaylists();
     updateSelectionControls();
-    await showAppAlert(data.message || 'Lagu terpilih berjaya dipadam.', 'Lagu dipadam');
+    await showAppAlert(data.message || 'Selected songs deleted successfully.', 'Songs deleted');
   } catch (error) {
     console.error('Bulk delete failed:', error);
-    await showAppAlert('Ralat semasa memadam lagu terpilih.', 'Padam gagal', 'danger');
+    await showAppAlert('An error occurred while deleting the selected songs.', 'Delete failed', 'danger');
   }
 };
 
@@ -553,7 +553,7 @@ function renderFavoritesList() {
     elements.favoritesList.innerHTML = `
       <div class="empty-state" style="padding:48px; text-align:center; color:var(--text-subdued);">
         <i class="fa-regular fa-heart" style="font-size:40px; margin-bottom:12px; color:var(--spotify-green);"></i>
-        <p>Belum ada lagu kegemaran. Tekan ikon ❤️ pada lagu untuk memasukkan ke sini!</p>
+        <p>No favorite songs yet. Click the heart icon on a song to add it here.</p>
       </div>
     `;
     return;
@@ -574,7 +574,7 @@ function renderFavoritesList() {
         </div>
         <div class="song-album">${escapeHtml(song.album || '—')}</div>
         <div class="song-duration">${formatTime(song.duration)}</div>
-        <button class="icon-btn-ghost" data-action="add-playlist" data-song-id="${escapeHtml(song.id)}" title="Tambah ke Playlist">
+        <button class="icon-btn-ghost" data-action="add-playlist" data-song-id="${escapeHtml(song.id)}" title="Add to Playlist">
           <i class="fa-solid fa-plus"></i>
         </button>
         <button class="icon-btn-ghost active" data-action="favorite" data-song-id="${escapeHtml(song.id)}">
@@ -593,9 +593,9 @@ function renderPlaylists() {
   elements.playlistsGrid.innerHTML = state.playlists.map(pl => `
       <div class="playlist-card" data-action="open-playlist" data-playlist-id="${escapeHtml(pl.id)}" role="button" tabindex="0">
       <img class="playlist-card-cover" src="default-cover.svg" alt="Playlist Cover">
-      <button class="btn-circle-play" title="Buka Playlist"><i class="fa-solid fa-play"></i></button>
+      <button class="btn-circle-play" title="Open Playlist"><i class="fa-solid fa-play"></i></button>
       <div class="playlist-card-title">${escapeHtml(pl.name)}</div>
-      <div class="playlist-card-sub">${pl.songs.length} Lagu</div>
+      <div class="playlist-card-sub">${pl.songs.length} Song(s)</div>
     </div>
   `).join('');
 }
@@ -867,7 +867,7 @@ function initVisualizer() {
   // Connecting an <audio> element to an AudioContext breaks native background playback on iOS Safari.
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
   if (isIOS) {
-    showAppAlert('Visualizer tidak disokong pada iPhone kerana Safari mengehadkan sambungan audio masa nyata. Player dan kawalan volume masih berfungsi seperti biasa.', 'Visualizer iPhone');
+    showAppAlert('Visualizer is not supported on iPhone because Safari limits real-time audio connections. The player and volume controls still work normally.', 'iPhone Visualizer');
     return false;
   }
 
@@ -888,7 +888,7 @@ function initVisualizer() {
     return true;
   } catch (e) {
     console.log('Audio visualizer init fallback:', e);
-    showAppAlert('Visualizer tidak dapat dimulakan pada browser ini.', 'Visualizer tidak tersedia', 'warning');
+    showAppAlert('The visualizer could not start in this browser.', 'Visualizer unavailable', 'warning');
     return false;
   }
 }
@@ -907,7 +907,7 @@ function toggleVisualizer(_sourceButton) {
   document.querySelectorAll('#toggle-visualizer, #m-eq-btn').forEach(button => {
     button.classList.toggle('active', enabled);
     button.setAttribute('aria-pressed', String(enabled));
-    button.title = enabled ? 'Matikan visualizer' : 'Hidupkan visualizer';
+    button.title = enabled ? 'Disable visualizer' : 'Enable visualizer';
   });
   if (visualizerStatus) {
     visualizerStatus.innerHTML = enabled
@@ -923,7 +923,7 @@ function syncVisualizerStatus() {
   document.querySelectorAll('#toggle-visualizer, #m-eq-btn').forEach(button => {
     button.classList.toggle('active', enabled);
     button.setAttribute('aria-pressed', String(enabled));
-    button.title = enabled ? 'Matikan visualizer' : 'Hidupkan visualizer';
+    button.title = enabled ? 'Disable visualizer' : 'Enable visualizer';
   });
   const visualizerStatus = document.getElementById('visualizer-status');
   if (visualizerStatus) {
@@ -1002,15 +1002,15 @@ function updateFavIcon() {
 }
 
 async function deleteSong(songId) {
-  if (!await showAppConfirm('Adakah anda pasti mahu memadam lagu ini daripada laptop server?', 'Padam lagu ini?', 'danger')) return;
+  if (!await showAppConfirm('Are you sure you want to delete this song from the laptop server?', 'Delete this song?', 'danger')) return;
 
   try {
     const data = await apiFetch(`/api/songs/${encodeURIComponent(songId)}`, { method: 'DELETE' });
     await fetchSongs();
     await fetchPlaylists();
-    await showAppAlert(data.message || 'Lagu berjaya dipadam.', 'Lagu dipadam');
+    await showAppAlert(data.message || 'Song deleted successfully.', 'Song deleted');
   } catch (e) {
-    await showAppAlert('Gagal memadam lagu.', 'Padam gagal', 'danger');
+    await showAppAlert('Failed to delete the song.', 'Delete failed', 'danger');
   }
 }
 
@@ -1048,7 +1048,7 @@ async function uploadFiles(files) {
 
   elements.uploadProgressList.innerHTML = `
     <div class="upload-progress-summary" id="upload-progress-summary">
-      <span><i class="fa-solid fa-circle-notch fa-spin"></i> Menyediakan upload...</span>
+      <span><i class="fa-solid fa-circle-notch fa-spin"></i> Preparing upload...</span>
       <strong id="upload-progress-total">0 / ${selectedFiles.length}</strong>
     </div>
     <div class="upload-progress-items" id="upload-progress-items">
@@ -1058,7 +1058,7 @@ async function uploadFiles(files) {
           <div class="upload-file-details">
             <div class="upload-file-heading">
               <span class="upload-file-name">${escapeHtml(file.name)}</span>
-              <span class="upload-file-status">Menunggu</span>
+              <span class="upload-file-status">Waiting</span>
             </div>
             <div class="upload-progress-track"><div class="upload-progress-fill"></div></div>
           </div>
@@ -1076,20 +1076,20 @@ async function uploadFiles(files) {
     const status = item.querySelector('.upload-file-status');
     const progress = item.querySelector('.upload-progress-fill');
     item.classList.add('uploading');
-    status.textContent = 'Memuat naik...';
+      status.textContent = 'Uploading...';
 
     try {
       await uploadSingleFile(file, progress, status);
       completed++;
       item.classList.remove('uploading');
       item.classList.add('uploaded');
-      status.textContent = 'Selesai';
+      status.textContent = 'Complete';
       progress.style.width = '100%';
     } catch (error) {
       failed++;
       item.classList.remove('uploading');
       item.classList.add('upload-failed');
-      status.textContent = 'Gagal';
+      status.textContent = 'Failed';
       console.error(`Upload failed for ${file.name}:`, error);
     }
 
@@ -1098,8 +1098,8 @@ async function uploadFiles(files) {
 
   const summary = document.getElementById('upload-progress-summary');
   summary.innerHTML = failed === 0
-    ? `<span class="upload-success"><i class="fa-solid fa-circle-check"></i> Semua lagu selesai dimuat naik</span><strong>${completed} / ${selectedFiles.length}</strong>`
-    : `<span class="upload-warning"><i class="fa-solid fa-triangle-exclamation"></i> ${completed} berjaya, ${failed} gagal</span><strong>${completed + failed} / ${selectedFiles.length}</strong>`;
+    ? `<span class="upload-success"><i class="fa-solid fa-circle-check"></i> All songs uploaded successfully</span><strong>${completed} / ${selectedFiles.length}</strong>`
+    : `<span class="upload-warning"><i class="fa-solid fa-triangle-exclamation"></i> ${completed} succeeded, ${failed} failed</span><strong>${completed + failed} / ${selectedFiles.length}</strong>`;
 
   await fetchSongs();
   setTimeout(fetchSongs, 1200);
@@ -1114,7 +1114,7 @@ function uploadSingleFile(file, progressElement, statusElement) {
 
     xhr.open('POST', '/api/upload');
     if (!apiKey) {
-      const enteredKey = window.prompt('Masukkan API key SonicStream untuk upload:');
+      const enteredKey = window.prompt('Enter your SonicStream API key to upload:');
       if (enteredKey) {
         apiKey = enteredKey.trim();
         window.localStorage.setItem('sonicstream-api-key', apiKey);
@@ -1224,7 +1224,7 @@ function resetAppDialog() {
   resolve(false);
 }
 
-function showAppDialog({ title, message, confirmText = 'OK', cancelText = 'Batal', type = 'info', showCancel = false }) {
+function showAppDialog({ title, message, confirmText = 'OK', cancelText = 'Cancel', type = 'info', showCancel = false }) {
   if (appDialogResolver) resetAppDialog();
   appDialogTitle.textContent = title;
   appDialogMessage.textContent = message;
@@ -1245,12 +1245,12 @@ function showAppDialog({ title, message, confirmText = 'OK', cancelText = 'Batal
   });
 }
 
-function showAppAlert(message, title = 'Makluman', type = 'info') {
+function showAppAlert(message, title = 'Notice', type = 'info') {
   return showAppDialog({ title, message, type });
 }
 
-function showAppConfirm(message, title = 'Sahkan tindakan', type = 'warning') {
-  return showAppDialog({ title, message, type, confirmText: 'Teruskan', showCancel: true });
+function showAppConfirm(message, title = 'Confirm action', type = 'warning') {
+  return showAppDialog({ title, message, type, confirmText: 'Continue', showCancel: true });
 }
 
 appDialogConfirm.addEventListener('click', () => closeAppDialog(true));
@@ -1275,7 +1275,7 @@ function openPlaylist(id) {
   document.getElementById('playlist-detail-view').style.display = 'block';
   
   document.getElementById('pl-detail-name').textContent = pl.name;
-  document.getElementById('pl-detail-desc').textContent = `${pl.songs.length} Lagu`;
+  document.getElementById('pl-detail-desc').textContent = `${pl.songs.length} Song(s)`;
   
   renderPlaylistSongs(pl);
 }
@@ -1291,7 +1291,7 @@ function renderPlaylistSongs(pl) {
   const container = document.getElementById('playlist-songs-list');
   
   if (plSongs.length === 0) {
-    container.innerHTML = `<div class="empty-state" style="padding:48px;text-align:center;"><i class="fa-solid fa-list-ul" style="font-size:40px; margin-bottom:12px; color:var(--text-subdued);"></i><p>Belum ada lagu dalam playlist ini.</p></div>`;
+     container.innerHTML = `<div class="empty-state" style="padding:48px;text-align:center;"><i class="fa-solid fa-list-ul" style="font-size:40px; margin-bottom:12px; color:var(--text-subdued);"></i><p>No songs in this playlist yet.</p></div>`;
     return;
   }
 
@@ -1310,7 +1310,7 @@ function renderPlaylistSongs(pl) {
         </div>
         <div class="song-album">${escapeHtml(song.album || '—')}</div>
         <div class="song-duration">${formatTime(song.duration)}</div>
-        <button class="icon-btn-ghost" data-action="remove-playlist-song" data-song-id="${escapeHtml(song.id)}" title="Buang dari Playlist">
+        <button class="icon-btn-ghost" data-action="remove-playlist-song" data-song-id="${escapeHtml(song.id)}" title="Remove from Playlist">
           <i class="fa-solid fa-minus"></i>
         </button>
         <span class="song-action-spacer" aria-hidden="true"></span>
@@ -1359,7 +1359,7 @@ createPlaylistForm.addEventListener('submit', async event => {
     await fetchPlaylists();
   } catch (error) {
     console.error('Playlist creation failed:', error);
-    await showAppAlert('Gagal mencipta playlist.', 'Playlist gagal dicipta', 'danger');
+    await showAppAlert('Failed to create the playlist.', 'Playlist creation failed', 'danger');
   } finally {
     submitButton.disabled = false;
   }
@@ -1374,7 +1374,7 @@ window.showAddPlaylistModal = function(songId) {
   const list = document.getElementById('add-to-pl-list');
   
   if (state.playlists.length === 0) {
-    list.innerHTML = `<p style="color:var(--text-subdued); font-size:13px; text-align:center; padding:20px;">Anda belum mempunyai sebarang Playlist.</p>`;
+    list.innerHTML = `<p style="color:var(--text-subdued); font-size:13px; text-align:center; padding:20px;">You do not have any playlists yet.</p>`;
   } else {
     list.innerHTML = state.playlists.map(pl => `
       <div class="bulk-song-item" data-action="add-playlist-item" data-playlist-id="${escapeHtml(pl.id)}" style="justify-content: space-between;">
@@ -1382,7 +1382,7 @@ window.showAddPlaylistModal = function(songId) {
           <img src="default-cover.svg" style="width:38px; height:38px; border-radius:6px;">
           <div style="display:flex; flex-direction:column;">
             <span style="font-weight:700; font-size:14px; color:white;">${escapeHtml(pl.name)}</span>
-            <span style="font-size:11px; color:var(--text-subdued);">${pl.songs.length} Lagu</span>
+             <span style="font-size:11px; color:var(--text-subdued);">${pl.songs.length} Song(s)</span>
           </div>
         </div>
         <i class="fa-solid fa-plus" style="color:var(--spotify-green); font-size:14px;"></i>
@@ -1404,7 +1404,7 @@ window.addSongToPlaylist = async function(playlistId) {
     document.getElementById('add-to-playlist-modal').style.display = 'none';
     currentSongToAdd = null;
     fetchPlaylists();
-    await showAppAlert('Lagu ditambah ke playlist!', 'Playlist dikemas kini');
+    await showAppAlert('Song added to the playlist.', 'Playlist updated');
   } catch (e) {
     console.error(e);
   }
@@ -1412,7 +1412,7 @@ window.addSongToPlaylist = async function(playlistId) {
 
 window.removeSongFromPlaylist = async function(songId) {
   if (!state.currentPlaylistId) return;
-  if (!await showAppConfirm('Buang lagu ini dari playlist?', 'Buang lagu?', 'warning')) return;
+  if (!await showAppConfirm('Remove this song from the playlist?', 'Remove song?', 'warning')) return;
   try {
     await apiFetch(`/api/playlists/${state.currentPlaylistId}/songs/${songId}`, {
       method: 'DELETE'
@@ -1426,22 +1426,22 @@ window.removeSongFromPlaylist = async function(songId) {
 
 window.deleteSongFromLibrary = async function(songId) {
   const song = state.songs.find(s => s.id === songId);
-  const name = song ? song.title : 'lagu ini';
-  if (!await showAppConfirm(`Adakah anda pasti untuk memadam "${name}" secara KEKAL daripada simpanan laptop?`, 'Padam lagu secara kekal?', 'danger')) return;
+  const name = song ? song.title : 'this song';
+  if (!await showAppConfirm(`Are you sure you want to permanently delete "${name}" from the laptop storage?`, 'Permanently delete song?', 'danger')) return;
   try {
     const data = await apiFetch(`/api/songs/${encodeURIComponent(songId)}`, { method: 'DELETE' });
     await fetchSongs();
     await fetchPlaylists();
-    await showAppAlert(data.message || 'Lagu berjaya dipadam!', 'Lagu dipadam');
+    await showAppAlert(data.message || 'Song deleted successfully.', 'Song deleted');
   } catch (e) {
     console.error(e);
-    await showAppAlert('Ralat semasa memadam lagu.', 'Padam gagal', 'danger');
+    await showAppAlert('An error occurred while deleting the song.', 'Delete failed', 'danger');
   }
 };
 
 document.getElementById('delete-playlist-btn').addEventListener('click', async () => {
   if (!state.currentPlaylistId) return;
-  if (!await showAppConfirm('Padam playlist ini sepenuhnya?', 'Padam playlist?', 'danger')) return;
+  if (!await showAppConfirm('Delete this playlist permanently?', 'Delete playlist?', 'danger')) return;
   try {
     await apiFetch(`/api/playlists/${state.currentPlaylistId}`, {
       method: 'DELETE'
@@ -1496,7 +1496,7 @@ window.renderBulkSongs = function() {
   }
 
   if (filtered.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--text-subdued); font-size: 13px;">Tiada lagu ditemui.</div>`;
+     container.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--text-subdued); font-size: 13px;">No songs found.</div>`;
     return;
   }
 
@@ -1568,7 +1568,7 @@ window.updateBulkCount = function() {
 window.submitBulkAdd = async function() {
   if (!state.currentPlaylistId) return;
   if (bulkSelectedSongs.size === 0) {
-    await showAppAlert('Sila pilih sekurang-kurangnya satu lagu.', 'Tiada lagu dipilih', 'warning');
+     await showAppAlert('Select at least one song.', 'No songs selected', 'warning');
     return;
   }
   
@@ -1583,7 +1583,7 @@ window.submitBulkAdd = async function() {
     bulkSelectedSongs.clear();
     await fetchPlaylists();
     setTimeout(() => openPlaylist(state.currentPlaylistId), 100);
-    await showAppAlert('Lagu-lagu berjaya ditambah ke playlist!', 'Playlist dikemas kini');
+     await showAppAlert('Songs added to the playlist successfully.', 'Playlist updated');
   } catch (e) {
     console.error(e);
   }
