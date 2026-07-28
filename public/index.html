@@ -352,14 +352,25 @@
     <div class="mobile-player-modal" id="mobile-player">
       <div class="mobile-player-header">
         <button class="close-mobile-player" id="close-mobile-player"><i class="fa-solid fa-chevron-down"></i></button>
-        <span class="modal-title">SEDANG DIMAINKAN</span>
-        <button class="icon-btn-sm" id="m-eq-btn"><i class="fa-solid fa-sliders"></i></button>
+        <div class="now-playing-label">
+          <span class="now-playing-dot"></span>
+          <span class="modal-title">SEDANG DIMAINKAN</span>
+        </div>
+        <button class="icon-btn-sm visualizer-toggle" id="m-eq-btn" title="Hidupkan visualizer" aria-label="Hidupkan visualizer" aria-pressed="false">
+          <i class="fa-solid fa-chart-simple"></i>
+        </button>
       </div>
 
       <div class="mobile-player-body">
-        <div class="m-cover-wrapper">
-          <img id="m-player-cover" src="default-cover.svg" alt="Cover">
-          <canvas id="visualizer-canvas" class="visualizer-canvas"></canvas>
+        <div class="m-visualizer-stage">
+          <div class="visualizer-orb orb-one"></div>
+          <div class="visualizer-orb orb-two"></div>
+          <div class="m-cover-wrapper">
+            <div class="cover-glow"></div>
+            <img id="m-player-cover" src="default-cover.svg" alt="Cover">
+          </div>
+          <canvas id="visualizer-canvas" class="visualizer-canvas" aria-label="Visualizer audio"></canvas>
+          <div class="visualizer-status" id="visualizer-status"><i class="fa-solid fa-chart-simple"></i> Visualizer Off</div>
         </div>
 
         <div class="m-track-info">
@@ -497,7 +508,7 @@
   <!-- Audio Element -->
   <audio id="audio-player" preload="auto" playsinline></audio>
 
-  <script src="app.js?v=9.0"></script>
+  <script src="app.js?v=9.1"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

@@ -15,7 +15,9 @@ const state = {
   audioCtx: null,
   analyser: null,
   visualizerSource: null,
+  visualizerSources: [],
   visualizerAnimId: null,
+  visualizerEnabled: false,
   selectionMode: false,
   selectedSongIds: new Set(),
   audioPool: [],
@@ -188,9 +190,13 @@ function initEvents() {
   const visualizerBtn = document.getElementById('toggle-visualizer');
   if (visualizerBtn) {
     visualizerBtn.addEventListener('click', () => {
-      const enabled = initVisualizer();
-      visualizerBtn.classList.toggle('active', enabled);
+      toggleVisualizer(visualizerBtn);
     });
+  }
+
+  const mobileVisualizerBtn = document.getElementById('m-eq-btn');
+  if (mobileVisualizerBtn) {
+    mobileVisualizerBtn.addEventListener('click', () => toggleVisualizer(mobileVisualizerBtn));
   }
 
   // Favorite Buttons
@@ -710,11 +716,14 @@ function initVisualizer() {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     state.audioCtx = new AudioContext();
     state.audioCtx.resume();
-    const source = state.audioCtx.createMediaElementSource(elements.audio);
-    state.visualizerSource = source;
     state.analyser = state.audioCtx.createAnalyser();
     state.analyser.fftSize = 64;
-    source.connect(state.analyser);
+    state.visualizerSources = state.audioPool.map(audio => {
+      const source = state.audioCtx.createMediaElementSource(audio);
+      source.connect(state.analyser);
+      return source;
+    });
+    state.visualizerSource = state.visualizerSources[0];
     state.analyser.connect(state.audioCtx.destination);
     drawVisualizer();
     return true;
@@ -722,6 +731,47 @@ function initVisualizer() {
     console.log('Audio visualizer init fallback:', e);
     showAppAlert('Visualizer tidak dapat dimulakan pada browser ini.', 'Visualizer tidak tersedia', 'warning');
     return false;
+  }
+}
+
+function toggleVisualizer(sourceButton) {
+  const visualizerStatus = document.getElementById('visualizer-status');
+  if (state.audioCtx) {
+    state.visualizerEnabled = !state.visualizerEnabled;
+  } else {
+    const initialized = initVisualizer();
+    if (!initialized) return false;
+    state.visualizerEnabled = true;
+  }
+
+  const enabled = state.visualizerEnabled;
+  document.querySelectorAll('#toggle-visualizer, #m-eq-btn').forEach(button => {
+    button.classList.toggle('active', enabled);
+    button.setAttribute('aria-pressed', String(enabled));
+    button.title = enabled ? 'Matikan visualizer' : 'Hidupkan visualizer';
+  });
+  if (visualizerStatus) {
+    visualizerStatus.innerHTML = enabled
+      ? '<i class="fa-solid fa-chart-simple"></i> Visualizer On'
+      : '<i class="fa-solid fa-chart-simple"></i> Visualizer Off';
+    visualizerStatus.classList.toggle('active', enabled);
+  }
+  return enabled;
+}
+
+function syncVisualizerStatus() {
+  const enabled = Boolean(state.visualizerEnabled);
+  document.querySelectorAll('#toggle-visualizer, #m-eq-btn').forEach(button => {
+    button.classList.toggle('active', enabled);
+    button.setAttribute('aria-pressed', String(enabled));
+    button.title = enabled ? 'Matikan visualizer' : 'Hidupkan visualizer';
+  });
+  const visualizerStatus = document.getElementById('visualizer-status');
+  if (visualizerStatus) {
+    visualizerStatus.innerHTML = enabled
+      ? '<i class="fa-solid fa-chart-simple"></i> Visualizer On'
+      : '<i class="fa-solid fa-chart-simple"></i> Visualizer Off';
+    visualizerStatus.classList.toggle('active', enabled);
   }
 }
 
@@ -742,7 +792,7 @@ function drawVisualizer() {
       canvas.height = canvas.id === 'desktop-visualizer-canvas' ? 28 : 80;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     });
-    if (!state.analyser || !state.isPlaying) return;
+    if (!state.analyser || !state.isPlaying || !state.visualizerEnabled) return;
 
     state.analyser.getByteFrequencyData(dataArray);
 
@@ -963,6 +1013,7 @@ function switchTab(tabId) {
 
 function openMobilePlayer() {
   elements.mobilePlayer.classList.add('active');
+  syncVisualizerStatus();
 }
 
 function closeMobilePlayer() {
