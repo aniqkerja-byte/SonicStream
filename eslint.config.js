@@ -16,7 +16,13 @@ module.exports = [
         toggleSongSelection: 'readonly',
         toggleBulkSongItem: 'readonly',
         renderBulkSongs: 'readonly',
-        updateBulkCount: 'readonly'
+        updateBulkCount: 'readonly',
+        toggleSelectionMode: 'readonly',
+        toggleSelectAllSongs: 'readonly',
+        deleteSelectedSongs: 'readonly',
+        openBulkAddModal: 'readonly',
+        selectAllBulk: 'readonly',
+        submitBulkAdd: 'readonly'
       }
     },
     rules: {

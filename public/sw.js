@@ -2,10 +2,11 @@ const CACHE_NAME = 'sonicstream-cache-v26';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/style.css?v=9.1',
-  '/app.js?v=9.1',
+  '/style.css?v=10.0',
+  '/app.js?v=10.1',
   '/default-cover.svg',
   '/icon.png',
+  '/register-sw.js?v=1.0',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
   'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap'
 ];

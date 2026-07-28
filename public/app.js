@@ -162,6 +162,25 @@ document.addEventListener('DOMContentLoaded', () => {
 // Setup Event Listeners
 function initEvents() {
   document.addEventListener('click', handleDelegatedAction);
+  document.addEventListener('error', handleImageError, true);
+
+  document.getElementById('selection-mode-btn')?.addEventListener('click', () => toggleSelectionMode());
+  document.getElementById('select-all-songs-btn')?.addEventListener('click', () => toggleSelectAllSongs());
+  document.getElementById('delete-selected-btn')?.addEventListener('click', deleteSelectedSongs);
+  document.getElementById('cancel-selection-btn')?.addEventListener('click', () => toggleSelectionMode(false));
+  document.getElementById('select-all-songs-checkbox')?.addEventListener('change', event => toggleSelectAllSongs(event.target.checked));
+  document.getElementById('open-bulk-add-btn')?.addEventListener('click', openBulkAddModal);
+  document.getElementById('open-bulk-remove-btn')?.addEventListener('click', () => {
+    showAppAlert('Fungsi buang banyak lagu belum tersedia.', 'Makluman', 'warning');
+  });
+  document.getElementById('choose-audio-btn')?.addEventListener('click', () => elements.fileInput.click());
+  document.getElementById('close-add-playlist-modal')?.addEventListener('click', closeAddPlaylistModal);
+  document.getElementById('close-add-playlist-btn')?.addEventListener('click', closeAddPlaylistModal);
+  document.getElementById('close-bulk-add-modal')?.addEventListener('click', closeBulkAddModal);
+  document.getElementById('cancel-bulk-add-btn')?.addEventListener('click', closeBulkAddModal);
+  document.getElementById('select-all-bulk-btn')?.addEventListener('click', () => selectAllBulk(true));
+  document.getElementById('reset-bulk-btn')?.addEventListener('click', () => selectAllBulk(false));
+  document.getElementById('submit-bulk-add-btn')?.addEventListener('click', submitBulkAdd);
   // Navigation Tabs
   document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -315,6 +334,24 @@ function initEvents() {
   initUploadHandlers();
 }
 
+function handleImageError(event) {
+  const image = event.target;
+  if (image instanceof HTMLImageElement && image.dataset.fallbackCover !== undefined) {
+    image.src = 'default-cover.svg';
+    delete image.dataset.fallbackCover;
+  }
+}
+
+function closeAddPlaylistModal() {
+  document.getElementById('add-to-playlist-modal').style.display = 'none';
+  currentSongToAdd = null;
+}
+
+function closeBulkAddModal() {
+  document.getElementById('bulk-add-modal').style.display = 'none';
+  bulkSelectedSongs.clear();
+}
+
 function handleDelegatedAction(event) {
   const actionElement = event.target.closest('[data-action]');
   if (actionElement) {
@@ -327,6 +364,7 @@ function handleDelegatedAction(event) {
     if (action === 'add-playlist-item') addSongToPlaylist(playlistId);
     if (action === 'select-song') toggleSongSelection(songId, actionElement.checked);
     if (action === 'bulk-song' && !actionElement.classList.contains('disabled')) toggleBulkSongItem(songId);
+    if (action === 'open-playlist') openPlaylist(playlistId);
     return;
   }
   const songCard = event.target.closest('.song-card[data-song-id]');
@@ -409,7 +447,7 @@ function renderSongList() {
         <div class="song-num">
           ${isPlaying ? '<i class="fa-solid fa-chart-simple fa-beat" style="color:var(--spotify-green)"></i>' : (index + 1)}
         </div>
-        <img class="song-cover" src="${coverUrl}" alt="Cover" onerror="this.src='default-cover.svg'">
+        <img class="song-cover" src="${coverUrl}" data-fallback-cover alt="Cover">
         <div class="song-details">
           <div class="song-title">${escapeHtml(song.title)}</div>
           <div class="song-artist">${escapeHtml(song.artist)}</div>
@@ -529,7 +567,7 @@ function renderFavoritesList() {
       <div class="song-card ${isCurrent ? 'playing' : ''}" data-song-id="${escapeHtml(song.id)}">
         <div class="song-select-cell" aria-hidden="true"></div>
         <div class="song-num">${index + 1}</div>
-        <img class="song-cover" src="${coverUrl}" alt="Cover" onerror="this.src='default-cover.svg'">
+        <img class="song-cover" src="${coverUrl}" data-fallback-cover alt="Cover">
         <div class="song-details">
           <div class="song-title">${escapeHtml(song.title)}</div>
           <div class="song-artist">${escapeHtml(song.artist)}</div>
@@ -1265,7 +1303,7 @@ function renderPlaylistSongs(pl) {
       <div class="song-card ${isCurrent ? 'playing' : ''}" data-song-id="${escapeHtml(song.id)}">
         <div class="song-select-cell" aria-hidden="true"></div>
         <div class="song-num">${index + 1}</div>
-        <img class="song-cover" src="${coverUrl}" alt="Cover" onerror="this.src='default-cover.svg'">
+        <img class="song-cover" src="${coverUrl}" data-fallback-cover alt="Cover">
         <div class="song-details">
           <div class="song-title">${escapeHtml(song.title)}</div>
           <div class="song-artist">${escapeHtml(song.artist)}</div>
@@ -1470,7 +1508,7 @@ window.renderBulkSongs = function() {
     return `
       <div class="bulk-song-item ${isAdded ? 'disabled' : (isChecked ? 'selected' : '')}" 
            data-action="bulk-song" data-song-id="${escapeHtml(song.id)}">
-        <img class="bulk-song-cover" src="${coverUrl}" alt="Cover" onerror="this.src='default-cover.svg'">
+        <img class="bulk-song-cover" src="${coverUrl}" data-fallback-cover alt="Cover">
         <div class="bulk-song-info">
           <div class="bulk-song-title">${escapeHtml(song.title)}</div>
           <div class="bulk-song-artist">${escapeHtml(song.artist)}</div>

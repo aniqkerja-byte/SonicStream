@@ -41,12 +41,14 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", 'https://static.cloudflareinsights.com', 'https://static.cloudflareinsights.com/beacon.min.js'],
+      scriptSrcElem: ["'self'", 'https://static.cloudflareinsights.com', 'https://static.cloudflareinsights.com/beacon.min.js'],
+      scriptSrcAttr: ["'none'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
       imgSrc: ["'self'", 'data:', 'blob:'],
       mediaSrc: ["'self'"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", 'https://cloudflareinsights.com', 'https://*.cloudflareinsights.com', 'https://static.cloudflareinsights.com'],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"]
     }

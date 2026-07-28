@@ -130,11 +130,11 @@
             <div class="filter-group">
               <button class="chip active" data-filter="all">Semua</button>
               <button class="chip" data-filter="recent">Terbaharu</button>
-              <button class="chip" id="selection-mode-btn" onclick="toggleSelectionMode()"><i class="fa-solid fa-check-square"></i> Pilih</button>
+              <button class="chip" id="selection-mode-btn"><i class="fa-solid fa-check-square"></i> Pilih</button>
               <div class="selection-actions" id="selection-actions" hidden>
-                <button class="chip" id="select-all-songs-btn" onclick="toggleSelectAllSongs()"><i class="fa-solid fa-check-double"></i> Pilih Semua</button>
-                <button class="chip selection-delete-btn" id="delete-selected-btn" onclick="deleteSelectedSongs()" disabled><i class="fa-solid fa-trash-can"></i> Padam Terpilih <span id="selected-songs-count">(0)</span></button>
-                <button class="chip" onclick="toggleSelectionMode(false)">Batal</button>
+                <button class="chip" id="select-all-songs-btn"><i class="fa-solid fa-check-double"></i> Pilih Semua</button>
+                <button class="chip selection-delete-btn" id="delete-selected-btn" disabled><i class="fa-solid fa-trash-can"></i> Padam Terpilih <span id="selected-songs-count">(0)</span></button>
+                <button class="chip" id="cancel-selection-btn">Batal</button>
               </div>
             </div>
             <div class="sort-group">
@@ -150,7 +150,7 @@
           <!-- Spotify Tracklist Header -->
           <div class="track-table-header">
             <div id="song-select-header" class="song-select-cell">
-              <input type="checkbox" id="select-all-songs-checkbox" aria-label="Pilih semua lagu" onchange="toggleSelectAllSongs(this.checked)">
+                <input type="checkbox" id="select-all-songs-checkbox" aria-label="Pilih semua lagu">
             </div>
             <div>#</div>
             <div></div>
@@ -229,10 +229,10 @@
                   <button class="btn btn-primary" id="play-playlist-btn">
                     <i class="fa-solid fa-play"></i> Mainkan
                   </button>
-                  <button class="btn btn-secondary" onclick="openBulkAddModal()">
+                  <button class="btn btn-secondary" id="open-bulk-add-btn">
                     <i class="fa-solid fa-plus"></i> Tambah Lagu
                   </button>
-                  <button class="btn btn-secondary" onclick="openBulkRemoveFromPlaylistModal()" style="border-color: rgba(243, 114, 127, 0.3); color: var(--text-negative);">
+                  <button class="btn btn-secondary" id="open-bulk-remove-btn" style="border-color: rgba(243, 114, 127, 0.3); color: var(--text-negative);">
                     <i class="fa-solid fa-minus"></i> Buang Lagu
                   </button>
                   <button class="icon-btn-ghost" id="delete-playlist-btn" style="color:var(--text-negative); background: rgba(243, 114, 127, 0.1); width: 42px; height: 42px;" title="Padam Playlist">
@@ -268,7 +268,7 @@
                 <h3>Tambah Lagu Ke Laptop Server</h3>
                 <p>Drag & drop fail MP3, M4A, FLAC, WAV di sini, atau klik butang di bawah.</p>
                 <input type="file" id="file-input" multiple accept="audio/*" style="display:none;">
-                <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                <button class="btn btn-primary" id="choose-audio-btn">
                   <i class="fa-solid fa-folder-open"></i> Pilih Fail Audio
                 </button>
               </div>
@@ -416,13 +416,13 @@
       <div class="modal-box">
         <div class="modal-header">
           <h3>Tambah ke Playlist</h3>
-          <button class="modal-close-btn" onclick="document.getElementById('add-to-playlist-modal').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+          <button class="modal-close-btn" id="close-add-playlist-modal"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body" id="add-to-pl-list">
           <!-- dynamic items -->
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="document.getElementById('add-to-playlist-modal').style.display='none'">Tutup</button>
+          <button class="btn btn-secondary" id="close-add-playlist-btn">Tutup</button>
         </div>
       </div>
     </div>
@@ -477,7 +477,7 @@
       <div class="modal-box">
         <div class="modal-header">
           <h3>Pilih Lagu ke Playlist</h3>
-          <button class="modal-close-btn" onclick="document.getElementById('bulk-add-modal').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+          <button class="modal-close-btn" id="close-bulk-add-modal"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
           <div style="position: relative; width: 100%;">
@@ -488,8 +488,8 @@
           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
             <span style="font-size: 12px; color: var(--text-subdued); font-weight: 600;" id="bulk-selection-status">Pilih lagu yang ingin ditambah:</span>
             <div style="display: flex; gap: 6px;">
-              <button class="chip" onclick="selectAllBulk(true)" style="padding: 4px 12px; font-size: 11px;">Pilih Semua</button>
-              <button class="chip" onclick="selectAllBulk(false)" style="padding: 4px 12px; font-size: 11px;">Reset</button>
+              <button class="chip" id="select-all-bulk-btn" style="padding: 4px 12px; font-size: 11px;">Pilih Semua</button>
+              <button class="chip" id="reset-bulk-btn" style="padding: 4px 12px; font-size: 11px;">Reset</button>
             </div>
           </div>
 
@@ -498,8 +498,8 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="document.getElementById('bulk-add-modal').style.display='none'">Batal</button>
-          <button class="btn btn-primary" onclick="submitBulkAdd()">Simpan Lagu <span id="bulk-count">(0)</span></button>
+          <button class="btn btn-secondary" id="cancel-bulk-add-btn">Batal</button>
+          <button class="btn btn-primary" id="submit-bulk-add-btn">Simpan Lagu <span id="bulk-count">(0)</span></button>
         </div>
       </div>
     </div>
@@ -508,15 +508,7 @@
   <!-- Audio Element -->
   <audio id="audio-player" preload="auto" playsinline></audio>
 
-  <script src="app.js?v=10.0"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').then(reg => {
-          console.log('Service Worker registered!', reg);
-        }).catch(err => console.log('Service Worker registration failed:', err));
-      });
-    }
-  </script>
+  <script src="app.js?v=10.1"></script>
+  <script src="register-sw.js?v=1.0"></script>
 </body>
 </html>
