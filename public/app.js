@@ -337,8 +337,8 @@ function initEvents() {
 function handleImageError(event) {
   const image = event.target;
   if (image instanceof HTMLImageElement && image.dataset.fallbackCover !== undefined) {
-    image.src = 'default-cover.svg';
     delete image.dataset.fallbackCover;
+    image.src = '/default-cover.svg';
   }
 }
 

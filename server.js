@@ -344,8 +344,10 @@ app.get('/api/cover/:id', readRateLimit, async (req, res, _next) => {
     const metadata = await musicMetadata.parseFile(filePath);
     if (metadata.common.picture && metadata.common.picture.length > 0) {
       const pic = metadata.common.picture[0];
-      res.set('Content-Type', pic.format);
-      return res.send(pic.data);
+      const imageBuffer = Buffer.isBuffer(pic.data) ? pic.data : Buffer.from(pic.data);
+      res.type(pic.format || 'application/octet-stream');
+      res.set('Content-Length', imageBuffer.length);
+      return res.end(imageBuffer);
     }
   } catch (_error) {
     // fallback below

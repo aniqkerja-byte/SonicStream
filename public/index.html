@@ -297,7 +297,7 @@
       <!-- Track Info -->
       <div class="player-left" id="player-info-trigger">
         <div class="current-cover-container">
-          <img id="player-cover" src="default-cover.svg" alt="Album Cover">
+          <img id="player-cover" src="default-cover.svg" data-fallback-cover alt="Album Cover">
         </div>
         <div class="current-details">
           <h4 id="player-title">Belum ada lagu</h4>
@@ -367,7 +367,7 @@
           <div class="visualizer-orb orb-two"></div>
           <div class="m-cover-wrapper">
             <div class="cover-glow"></div>
-            <img id="m-player-cover" src="default-cover.svg" alt="Cover">
+            <img id="m-player-cover" src="default-cover.svg" data-fallback-cover alt="Cover">
           </div>
           <canvas id="visualizer-canvas" class="visualizer-canvas" aria-label="Visualizer audio"></canvas>
           <div class="visualizer-status" id="visualizer-status"><i class="fa-solid fa-chart-simple"></i> Visualizer Off</div>
@@ -508,7 +508,7 @@
   <!-- Audio Element -->
   <audio id="audio-player" preload="auto" playsinline></audio>
 
-  <script src="app.js?v=10.1"></script>
+  <script src="app.js?v=10.2"></script>
   <script src="register-sw.js?v=1.0"></script>
 </body>
 </html>
