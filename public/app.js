@@ -14,6 +14,7 @@ const state = {
   activeTab: 'all-songs',
   audioCtx: null,
   analyser: null,
+  visualizerSource: null,
   visualizerAnimId: null,
   selectionMode: false,
   selectedSongIds: new Set(),
@@ -187,8 +188,8 @@ function initEvents() {
   const visualizerBtn = document.getElementById('toggle-visualizer');
   if (visualizerBtn) {
     visualizerBtn.addEventListener('click', () => {
-      initVisualizer();
-      visualizerBtn.classList.toggle('active', state.audioCtx != null);
+      const enabled = initVisualizer();
+      visualizerBtn.classList.toggle('active', enabled);
     });
   }
 
@@ -630,6 +631,7 @@ function updateControlButtons() {
 function setVolume(val) {
   state.volume = val;
   elements.audio.volume = val;
+  state.audioPool.forEach(audio => { audio.volume = val; });
   elements.volumeSlider.value = val;
   elements.mVolumeSlider.value = val;
   elements.btnMute.innerHTML = val === 0 
@@ -691,60 +693,72 @@ function setupMediaSession(song) {
 
 // Visualizer Canvas Effect
 function initVisualizer() {
-  if (state.audioCtx) return;
+  if (state.audioCtx) {
+    if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
+    return true;
+  }
 
   // iOS STRICT BACKGROUND AUDIO FIX: 
   // Connecting an <audio> element to an AudioContext breaks native background playback on iOS Safari.
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
   if (isIOS) {
-    console.log('Visualizer disabled on iOS to allow background audio playback.');
-    return;
+    showAppAlert('Visualizer tidak disokong pada iPhone kerana Safari mengehadkan sambungan audio masa nyata. Player dan kawalan volume masih berfungsi seperti biasa.', 'Visualizer iPhone');
+    return false;
   }
 
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     state.audioCtx = new AudioContext();
+    state.audioCtx.resume();
     const source = state.audioCtx.createMediaElementSource(elements.audio);
+    state.visualizerSource = source;
     state.analyser = state.audioCtx.createAnalyser();
     state.analyser.fftSize = 64;
     source.connect(state.analyser);
     state.analyser.connect(state.audioCtx.destination);
     drawVisualizer();
+    return true;
   } catch (e) {
     console.log('Audio visualizer init fallback:', e);
+    showAppAlert('Visualizer tidak dapat dimulakan pada browser ini.', 'Visualizer tidak tersedia', 'warning');
+    return false;
   }
 }
 
 function drawVisualizer() {
-  const canvas = document.getElementById('visualizer-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
+  const canvases = [
+    document.getElementById('visualizer-canvas'),
+    document.getElementById('desktop-visualizer-canvas')
+  ].filter(Boolean);
+  if (canvases.length === 0) return;
+  const contexts = canvases.map(canvas => ({ canvas, ctx: canvas.getContext('2d') }));
   const bufferLength = state.analyser ? state.analyser.frequencyBinCount : 0;
   const dataArray = new Uint8Array(bufferLength);
 
   function render() {
     state.visualizerAnimId = requestAnimationFrame(render);
-    canvas.width = canvas.parentElement.clientWidth;
-    canvas.height = 80;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    contexts.forEach(({ canvas, ctx }) => {
+      canvas.width = canvas.clientWidth || canvas.parentElement.clientWidth;
+      canvas.height = canvas.id === 'desktop-visualizer-canvas' ? 28 : 80;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
     if (!state.analyser || !state.isPlaying) return;
 
     state.analyser.getByteFrequencyData(dataArray);
 
-    const barWidth = (canvas.width / bufferLength) * 1.5;
-    let x = 0;
-
-    for (let i = 0; i < bufferLength; i++) {
-      const barHeight = (dataArray[i] / 255) * canvas.height;
-      const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
-      gradient.addColorStop(0, 'rgba(30, 215, 96, 0.2)');
-      gradient.addColorStop(1, 'rgba(31, 223, 100, 0.9)');
-
-      ctx.fillStyle = gradient;
-      ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
-      x += barWidth;
-    }
+    contexts.forEach(({ canvas, ctx }) => {
+      const barWidth = (canvas.width / bufferLength) * 1.5;
+      let x = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const barHeight = Math.max(2, (dataArray[i] / 255) * canvas.height);
+        const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
+        gradient.addColorStop(0, 'rgba(30, 215, 96, 0.2)');
+        gradient.addColorStop(1, 'rgba(31, 223, 100, 0.9)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
+        x += barWidth;
+      }
+    });
   }
 
   render();

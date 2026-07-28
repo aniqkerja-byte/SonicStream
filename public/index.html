@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="style.css?v=8.9">
+  <link rel="stylesheet" href="style.css?v=9.0">
   <link rel="icon" type="image/png" sizes="any" href="icon.png">
   <link rel="shortcut icon" type="image/png" href="icon.png">
   
@@ -334,6 +334,7 @@
         <button class="ctrl-btn" id="toggle-visualizer" title="Visualizer Audio">
           <i class="fa-solid fa-chart-simple"></i>
         </button>
+        <canvas id="desktop-visualizer-canvas" class="desktop-visualizer-canvas" aria-label="Visualizer audio"></canvas>
 
         <div class="volume-container">
           <button class="ctrl-btn" id="btn-mute"><i class="fa-solid fa-volume-high"></i></button>
@@ -496,7 +497,7 @@
   <!-- Audio Element -->
   <audio id="audio-player" preload="auto" playsinline></audio>
 
-  <script src="app.js?v=8.9"></script>
+  <script src="app.js?v=9.0"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
