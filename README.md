@@ -18,11 +18,23 @@ Tahniah! Platform penstriman muzik **SonicStream** telah siap dibina khas untuk 
 
 ### Step 1: Jalankan Server Utama
 Buka Terminal di laptop dan jalankan:
-```bash
-cd /home/lenovo/.gemini/antigravity/scratch/music-stream-app
+```powershell
+cd "C:\Users\<nama-user>\SonicStream"
+$env:API_KEY="gantikan-dengan-kunci-rahsia-panjang"
+$env:ALLOWED_ORIGINS="http://localhost:3000,https://music.jomtek.my"
 npm start
 ```
 > Server akan berjalan di pautan tempatan: `http://localhost:3000`
+
+### Environment Variables
+- `PORT` - Port HTTP server, default `3000`.
+- `MUSIC_DIR` - Folder library muzik, default `./music`.
+- `API_KEY` - Wajib untuk upload, delete, sync, favorite, dan playlist. Jangan commit key ini.
+- `ALLOWED_ORIGINS` - Senarai origin dipisahkan koma. Default membenarkan localhost dan `https://music.jomtek.my`.
+- `MAX_UPLOAD_SIZE` - Had saiz fail dalam bytes, default 1 GB.
+- `NODE_ENV=production` - Aktifkan HSTS ketika server berada di belakang HTTPS.
+
+Frontend akan meminta API key apabila mutation pertama dibuat dan menyimpannya dalam `localStorage` browser. Untuk keselamatan tambahan, gunakan Cloudflare Access atau private tunnel.
 
 ---
 
@@ -61,7 +73,7 @@ Jika laptop & telefon anda bersambung pada Wi-Fi rumah yang sama:
 ### Kaedah A: Copy-Paste Terus Dalam Laptop (Paling Laju)
 Salin fail lagu (MP3, WAV, FLAC, M4A) terus ke dalam folder ini di laptop anda:
 ```text
-/home/lenovo/.gemini/antigravity/scratch/music-stream-app/music
+./music
 ```
 > Server akan **auto-detect** lagu baharu tanpa perlu *restart* server!
 
@@ -77,3 +89,21 @@ Salin fail lagu (MP3, WAV, FLAC, M4A) terus ke dalam folder ini di laptop anda:
 - `public/` - Antaramuka web player (HTML5, Vanilla CSS Glassmorphism, Web Audio API, MediaSession).
 - `music/` - Folder simpanan utama semua fail lagu anda.
 - `generate-sample-music.js` - Skrip penjana lagu contoh tempatan.
+
+## 🧪 Semakan Kod
+
+```powershell
+npm test
+npm run lint
+npm run check
+npm audit
+```
+
+Database ditulis secara atomic ke `data/db.json` dan backup terakhir disimpan sebagai `data/db.json.bak`. Fail database, muzik, dan credential tidak disimpan dalam git.
+
+## 🔒 Nota Production
+
+- Jangan jalankan server public tanpa `API_KEY`.
+- Jangan dedahkan port Node terus ke internet; gunakan Cloudflare Tunnel atau reverse proxy HTTPS.
+- Pastikan fail credentials Cloudflare disimpan di luar repository.
+- Backup folder `music/` dan `data/db.json` secara berkala.

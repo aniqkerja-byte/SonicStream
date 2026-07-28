@@ -2,5 +2,10 @@ node_modules/
 .DS_Store
 *.log
 data/db.json
+data/db.json.bak
+*.tmp
+*.credentials.json
+credentials.json
+node_modules/
 music/*
 !music/.gitkeep

@@ -6,23 +6,104 @@ const multer = require('multer');
 const musicMetadata = require('music-metadata');
 const chokidar = require('chokidar');
 const os = require('os');
+const crypto = require('crypto');
+const helmet = require('helmet');
+const { rateLimit } = require('express-rate-limit');
+const { fileTypeFromFile } = require('file-type');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const VERSION = process.env.APP_VERSION || '1.0.0';
+const API_KEY = process.env.API_KEY || '';
+const MAX_UPLOAD_SIZE = Number(process.env.MAX_UPLOAD_SIZE || 1024 * 1024 * 1024);
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || [
+  `http://localhost:${PORT}`,
+  `http://127.0.0.1:${PORT}`,
+  'https://music.jomtek.my'
+].join(','))
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
 
 // Directories
 const MUSIC_DIR = process.env.MUSIC_DIR || path.join(__dirname, 'music');
 const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
+const DB_BACKUP_FILE = `${DB_FILE}.bak`;
 
 if (!fs.existsSync(MUSIC_DIR)) fs.mkdirSync(MUSIC_DIR, { recursive: true });
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // Middleware
-app.use(cors());
+app.disable('x-powered-by');
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      mediaSrc: ["'self'"],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"]
+    }
+  },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  strictTransportSecurity: process.env.NODE_ENV === 'production' ? undefined : false
+}));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Origin tidak dibenarkan'));
+  },
+  credentials: false
+}));
 app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
+
+const writeRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMITED', message: 'Terlalu banyak request. Cuba lagi kemudian.' } }
+});
+const uploadRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: { code: 'UPLOAD_RATE_LIMITED', message: 'Terlalu banyak upload. Cuba lagi kemudian.' } }
+});
+const readRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 240,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: { code: 'READ_RATE_LIMITED', message: 'Terlalu banyak request.' } }
+});
+
+function authRequired(req, res, next) {
+  if (!API_KEY) {
+    return res.status(503).json({ error: { code: 'AUTH_NOT_CONFIGURED', message: 'API_KEY belum dikonfigurasi pada server.' } });
+  }
+  const suppliedKey = req.get('x-api-key') || (req.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  const valid = suppliedKey && suppliedKey.length === API_KEY.length && crypto.timingSafeEqual(Buffer.from(suppliedKey), Buffer.from(API_KEY));
+  if (!valid) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication diperlukan.' } });
+  return next();
+}
+
+function requestError(status, code, message) {
+  const error = new Error(message);
+  error.status = status;
+  error.code = code;
+  return error;
+}
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -38,12 +119,13 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
+  limits: { fileSize: MAX_UPLOAD_SIZE, files: 20 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /\.(mp3|m4a|flac|wav|aac|ogg|wma|opus)$/i;
     if (file.originalname.match(allowedTypes)) {
       return cb(null, true);
     }
-    cb(new Error('Format fail audio disokong! Sila muat naik fail audio (MP3, M4A, FLAC, WAV, OGG, etc.)'));
+    cb(requestError(400, 'INVALID_EXTENSION', 'Format fail audio tidak disokong.'));
   }
 });
 
@@ -57,6 +139,10 @@ let db = {
   favorites: []
 };
 
+let dbSaveQueue = Promise.resolve();
+let scanPromise = null;
+const metadataCache = new Map();
+
 // Load database if exists
 if (fs.existsSync(DB_FILE)) {
   try {
@@ -66,18 +152,28 @@ if (fs.existsSync(DB_FILE)) {
     db.favorites = loaded.favorites || [];
   } catch (err) {
     console.error('Error reading db.json:', err);
+    if (fs.existsSync(DB_BACKUP_FILE)) {
+      try {
+        const backup = JSON.parse(fs.readFileSync(DB_BACKUP_FILE, 'utf8'));
+        db.playlists = backup.playlists || db.playlists;
+        db.favorites = backup.favorites || [];
+        console.warn('Recovered database from backup.');
+      } catch (backupError) {
+        console.error('Error reading database backup:', backupError);
+      }
+    }
   }
 }
 
 function saveDb() {
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify({
-      playlists: db.playlists,
-      favorites: db.favorites
-    }, null, 2));
-  } catch (err) {
-    console.error('Error saving db.json:', err);
-  }
+  const payload = JSON.stringify({ playlists: db.playlists, favorites: db.favorites }, null, 2);
+  dbSaveQueue = dbSaveQueue.then(async () => {
+    const tempFile = `${DB_FILE}.${process.pid}.tmp`;
+    await fs.promises.writeFile(tempFile, payload, 'utf8');
+    if (fs.existsSync(DB_FILE)) await fs.promises.copyFile(DB_FILE, DB_BACKUP_FILE);
+    await fs.promises.rename(tempFile, DB_FILE);
+  }).catch(err => console.error('Error saving db.json:', err));
+  return dbSaveQueue;
 }
 
 // Generate simple hash ID for files
@@ -92,6 +188,16 @@ function getFileId(filename) {
 
 // Scan Music Folder
 async function scanMusicFiles() {
+  if (scanPromise) return scanPromise;
+  scanPromise = scanMusicFilesInternal();
+  try {
+    return await scanPromise;
+  } finally {
+    scanPromise = null;
+  }
+}
+
+async function scanMusicFilesInternal() {
   console.log('🔄 Scanning music directory:', MUSIC_DIR);
   try {
     const files = fs.readdirSync(MUSIC_DIR);
@@ -103,6 +209,13 @@ async function scanMusicFiles() {
       const filePath = path.join(MUSIC_DIR, file);
       const fileId = getFileId(file);
       const stat = fs.statSync(filePath);
+
+      const cacheKey = `${stat.size}:${stat.mtimeMs}`;
+      const cached = metadataCache.get(file);
+      if (cached && cached.cacheKey === cacheKey) {
+        songList.push({ ...cached.song, filename: file, id: fileId, size: stat.size, addedAt: stat.birthtime || stat.mtime });
+        continue;
+      }
 
       let title = path.parse(file).name.replace(/_/g, ' ');
       let artist = 'Artis Tidak Diketahui';
@@ -123,11 +236,11 @@ async function scanMusicFiles() {
         if (metadata.common.picture && metadata.common.picture.length > 0) {
           hasPicture = true;
         }
-      } catch (e) {
+      } catch (_error) {
         // use fallback file stats
       }
 
-      songList.push({
+      const song = {
         id: fileId,
         filename: file,
         title,
@@ -139,10 +252,21 @@ async function scanMusicFiles() {
         size: stat.size,
         addedAt: stat.birthtime || stat.mtime,
         hasPicture
-      });
+      };
+      metadataCache.set(file, { cacheKey, song });
+      songList.push(song);
     }
 
     db.songs = songList;
+    const validIds = new Set(songList.map(song => song.id));
+    const previousFavorites = db.favorites.length;
+    const previousPlaylistCount = db.playlists.reduce((count, playlist) => count + playlist.songs.length, 0);
+    db.favorites = db.favorites.filter(id => validIds.has(id));
+    db.playlists.forEach(playlist => {
+      playlist.songs = playlist.songs.filter(id => validIds.has(id));
+    });
+    const currentPlaylistCount = db.playlists.reduce((count, playlist) => count + playlist.songs.length, 0);
+    if (previousFavorites !== db.favorites.length || previousPlaylistCount !== currentPlaylistCount) saveDb();
     console.log(`✅ Scan completed! Found ${db.songs.length} song(s).`);
   } catch (err) {
     console.error('❌ Error scanning music directory:', err);
@@ -185,24 +309,22 @@ function getLocalIPs() {
 // Get system status & connection info
 app.get('/api/status', (req, res) => {
   res.json({
-    status: 'online',
-    port: PORT,
-    localIps: getLocalIPs(),
+    status: 'ok',
+    version: VERSION,
     totalSongs: db.songs.length,
-    musicDir: MUSIC_DIR,
-    hostname: os.hostname(),
-    platform: os.platform()
   });
 });
 
 // Force Sync / Clear Cache
-app.post('/api/sync', async (req, res) => {
+app.post('/api/sync', authRequired, writeRateLimit, async (req, res, next) => {
+  try {
   await scanMusicFiles();
   res.json({ message: 'Server cache cleared and synced successfully!' });
+  } catch (error) { next(error); }
 });
 
 // Get all songs
-app.get('/api/songs', (req, res) => {
+app.get('/api/songs', readRateLimit, (req, res) => {
   const songsWithFav = db.songs.map(song => ({
     ...song,
     isFavorite: db.favorites.includes(song.id)
@@ -211,7 +333,7 @@ app.get('/api/songs', (req, res) => {
 });
 
 // Get song metadata cover image
-app.get('/api/cover/:id', async (req, res) => {
+app.get('/api/cover/:id', readRateLimit, async (req, res, _next) => {
   const song = db.songs.find(s => s.id === req.params.id);
   if (!song) return res.status(404).send('Song not found');
 
@@ -223,7 +345,7 @@ app.get('/api/cover/:id', async (req, res) => {
       res.set('Content-Type', pic.format);
       return res.send(pic.data);
     }
-  } catch (e) {
+  } catch (_error) {
     // fallback below
   }
 
@@ -232,7 +354,7 @@ app.get('/api/cover/:id', async (req, res) => {
 });
 
 // Stream audio file with HTTP Range support
-app.get('/api/stream/:id', (req, res) => {
+app.get('/api/stream/:id', readRateLimit, (req, res, next) => {
   const song = db.songs.find(s => s.id === req.params.id);
   if (!song) return res.status(404).json({ error: 'Song not found' });
 
@@ -264,12 +386,15 @@ app.get('/api/stream/:id', (req, res) => {
     'Access-Control-Expose-Headers': 'Accept-Ranges, Content-Length, Content-Range, Content-Type, ETag, Last-Modified',
     'X-Content-Type-Options': 'nosniff'
   });
+  if (req.headers['if-none-match'] === etag) return res.status(304).end();
 
   if (range) {
-    const parts = range.replace(/bytes=/, '').split('-');
-    const start = parseInt(parts[0], 10);
-    const requestedEnd = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-    if (Number.isNaN(start) || start >= fileSize) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+    if (!match) return res.status(416).set('Content-Range', `bytes */${fileSize}`).end();
+    const isSuffixRange = !match[1] && match[2];
+    let start = isSuffixRange ? Math.max(fileSize - Number(match[2]), 0) : Number(match[1]);
+    let requestedEnd = isSuffixRange || !match[2] ? fileSize - 1 : Number(match[2]);
+    if (!Number.isInteger(start) || !Number.isInteger(requestedEnd) || start < 0 || requestedEnd < 0 || start > requestedEnd || start >= fileSize) {
       return res.status(416).set('Content-Range', `bytes */${fileSize}`).end();
     }
     const end = Math.min(requestedEnd, fileSize - 1);
@@ -295,18 +420,29 @@ app.get('/api/stream/:id', (req, res) => {
 });
 
 // Upload song
-app.post('/api/upload', upload.array('songs', 20), async (req, res) => {
+app.post('/api/upload', authRequired, uploadRateLimit, upload.array('songs', 20), async (req, res, next) => {
+  try {
+    for (const file of req.files || []) {
+      const detected = await fileTypeFromFile(file.path);
+      const allowedMime = /^audio\/(mpeg|mp4|x-m4a|flac|wav|aac|ogg|webm|opus|x-ms-wma)$/i;
+      if (!detected || !allowedMime.test(detected.mime)) {
+        await Promise.all((req.files || []).map(uploaded => fs.promises.unlink(uploaded.path).catch(() => {})));
+        return res.status(400).json({ error: { code: 'INVALID_AUDIO', message: 'Fail bukan audio yang disokong.' } });
+      }
+    }
   scheduleMusicScan();
   res.status(202).json({
     message: 'Lagu berjaya diterima. Senarai lagu sedang dikemas kini...',
     uploaded: req.files ? req.files.length : 0
   });
+  } catch (error) { next(error); }
 });
 
 // Toggle Favorite
-app.post('/api/favorites/toggle', (req, res) => {
+app.post('/api/favorites/toggle', authRequired, writeRateLimit, (req, res) => {
   const { songId } = req.body;
   if (!songId) return res.status(400).json({ error: 'songId required' });
+  if (!db.songs.some(song => song.id === songId)) return res.status(404).json({ error: 'Song not found' });
 
   const idx = db.favorites.indexOf(songId);
   let isFavorite = false;
@@ -321,17 +457,19 @@ app.post('/api/favorites/toggle', (req, res) => {
 });
 
 // Playlists endpoints
-app.get('/api/playlists', (req, res) => {
+app.get('/api/playlists', readRateLimit, (req, res) => {
   res.json(db.playlists);
 });
 
-app.post('/api/playlists', (req, res) => {
+app.post('/api/playlists', authRequired, writeRateLimit, (req, res) => {
   const { name } = req.body;
-  if (!name) return res.status(400).json({ error: 'Playlist name is required' });
+  const normalizedName = typeof name === 'string' ? name.trim() : '';
+  if (!normalizedName || normalizedName.length > 80) return res.status(400).json({ error: 'Playlist name is required and must be 1-80 characters' });
+  if (db.playlists.some(playlist => playlist.name.toLowerCase() === normalizedName.toLowerCase())) return res.status(409).json({ error: 'Playlist name already exists' });
 
   const newPlaylist = {
     id: 'pl_' + Date.now(),
-    name,
+    name: normalizedName,
     songs: []
   };
 
@@ -340,11 +478,13 @@ app.post('/api/playlists', (req, res) => {
   res.json(newPlaylist);
 });
 
-app.post('/api/playlists/:id/songs', (req, res) => {
+app.post('/api/playlists/:id/songs', authRequired, writeRateLimit, (req, res) => {
   const { id } = req.params;
   const { songId, songIds } = req.body;
   const pl = db.playlists.find(p => p.id === id);
   if (!pl) return res.status(404).json({ error: 'Playlist not found' });
+  const ids = Array.isArray(songIds) ? songIds : songId ? [songId] : [];
+  if (!ids.every(id => typeof id === 'string' && db.songs.some(song => song.id === id))) return res.status(404).json({ error: 'One or more songs not found' });
 
   let modified = false;
 
@@ -369,7 +509,7 @@ app.post('/api/playlists/:id/songs', (req, res) => {
   res.json(pl);
 });
 
-app.delete('/api/playlists/:id/songs/:songId', (req, res) => {
+app.delete('/api/playlists/:id/songs/:songId', authRequired, writeRateLimit, (req, res) => {
   const { id, songId } = req.params;
   const pl = db.playlists.find(p => p.id === id);
   if (!pl) return res.status(404).json({ error: 'Playlist not found' });
@@ -380,7 +520,7 @@ app.delete('/api/playlists/:id/songs/:songId', (req, res) => {
 });
 
 // Bulk remove songs from playlist
-app.delete('/api/playlists/:id/songs', (req, res) => {
+app.delete('/api/playlists/:id/songs', authRequired, writeRateLimit, (req, res) => {
   const { id } = req.params;
   const { songIds } = req.body;
   const pl = db.playlists.find(p => p.id === id);
@@ -394,7 +534,7 @@ app.delete('/api/playlists/:id/songs', (req, res) => {
   res.json(pl);
 });
 
-app.delete('/api/playlists/:id', (req, res) => {
+app.delete('/api/playlists/:id', authRequired, writeRateLimit, (req, res) => {
   const { id } = req.params;
   const idx = db.playlists.findIndex(p => p.id === id);
   if (idx === -1) return res.status(404).json({ error: 'Playlist not found' });
@@ -404,7 +544,7 @@ app.delete('/api/playlists/:id', (req, res) => {
   res.json({ message: 'Playlist deleted' });
 });
 
-app.delete('/api/songs/:id', async (req, res) => {
+app.delete('/api/songs/:id', authRequired, writeRateLimit, async (req, res, _next) => {
   const song = db.songs.find(s => s.id === req.params.id);
   if (!song) return res.status(404).json({ error: 'Song not found' });
 
@@ -433,7 +573,7 @@ app.delete('/api/songs/:id', async (req, res) => {
 });
 
 // Bulk delete songs from disk library
-app.post('/api/songs/bulk-delete', async (req, res) => {
+app.post('/api/songs/bulk-delete', authRequired, writeRateLimit, async (req, res, _next) => {
   const { songIds } = req.body;
   if (!Array.isArray(songIds) || songIds.length === 0) {
     return res.status(400).json({ error: 'No song IDs provided' });
@@ -477,8 +617,20 @@ app.post('/api/songs/bulk-delete', async (req, res) => {
   });
 });
 
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err instanceof multer.MulterError) {
+    const message = err.code === 'LIMIT_FILE_SIZE' ? 'Fail melebihi had saiz upload.' : 'Upload tidak sah.';
+    return res.status(400).json({ error: { code: err.code, message } });
+  }
+  if (err.status && err.code) return res.status(err.status).json({ error: { code: err.code, message: err.message } });
+  if (err.message === 'Origin tidak dibenarkan') return res.status(403).json({ error: { code: 'CORS_FORBIDDEN', message: err.message } });
+  console.error('Unhandled request error:', err);
+  return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Ralat dalaman server.' } });
+});
+
 // Start Server
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`
 🎵 ========================================================= 🎵
    SONIC STREAM SERVER IS RUNNING!
@@ -489,3 +641,17 @@ app.listen(PORT, '0.0.0.0', () => {
 🎵 ========================================================= 🎵
   `);
 });
+
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`Received ${signal}; shutting down gracefully...`);
+  await new Promise(resolve => server.close(resolve));
+  await watcher.close();
+  if (scanPromise) await scanPromise.catch(() => {});
+  await dbSaveQueue;
+  process.exit(0);
+}
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

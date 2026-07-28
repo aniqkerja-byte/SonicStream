@@ -22,8 +22,72 @@ const state = {
   selectedSongIds: new Set(),
   audioPool: [],
   activeAudio: null,
-  preloadTimer: null
+  preloadTimer: null,
+  lastVolume: 1
 };
+
+const STORAGE_KEY = 'sonicstream-state-v1';
+let apiKey = window.localStorage.getItem('sonicstream-api-key') || '';
+
+function getActiveAudio() {
+  return state.activeAudio || elements.audio;
+}
+
+async function apiFetch(url, options = {}) {
+  const { _authRetry, ...requestOptions } = options;
+  const headers = new Headers(options.headers || {});
+  if (apiKey) headers.set('X-API-Key', apiKey);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeout || 15000);
+  try {
+    const response = await fetch(url, { ...requestOptions, headers, signal: options.signal || controller.signal });
+    if (response.status === 401 && !_authRetry && requestOptions.method && requestOptions.method.toUpperCase() !== 'GET') {
+      const enteredKey = window.prompt('Masukkan API key SonicStream untuk meneruskan tindakan:');
+      if (enteredKey) {
+        apiKey = enteredKey.trim();
+        window.localStorage.setItem('sonicstream-api-key', apiKey);
+        return apiFetch(url, { ...options, _authRetry: true });
+      }
+    }
+    const contentType = response.headers.get('content-type') || '';
+    const data = contentType.includes('application/json') ? await response.json() : await response.text();
+    if (!response.ok) {
+      const message = typeof data === 'object' && data?.error ? (data.error.message || data.error) : data;
+      throw new Error(message || `Request gagal (${response.status})`);
+    }
+    return data;
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('Request tamat masa. Semak sambungan server.');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function loadPersistedState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    if (Number.isFinite(saved.volume)) state.volume = Math.min(1, Math.max(0, saved.volume));
+    state.isShuffle = Boolean(saved.isShuffle);
+    state.isRepeat = Boolean(saved.isRepeat);
+    state.activeTab = saved.activeTab || state.activeTab;
+    state.lastSongId = saved.lastSongId || null;
+    state.lastPosition = Number.isFinite(saved.lastPosition) ? saved.lastPosition : 0;
+  } catch (error) {
+    console.warn('Unable to restore player state:', error);
+  }
+}
+
+function persistState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    volume: state.volume,
+    isShuffle: state.isShuffle,
+    isRepeat: state.isRepeat,
+    activeTab: state.activeTab,
+    lastSongId: state.currentSong?.id || state.lastSongId || null,
+    lastPosition: getActiveAudio().currentTime || 0
+  }));
+}
 
 // DOM Elements
 const elements = {
@@ -88,6 +152,7 @@ const elements = {
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
+  loadPersistedState();
   initEvents();
   fetchServerStatus();
   fetchSongs();
@@ -96,6 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Setup Event Listeners
 function initEvents() {
+  document.addEventListener('click', handleDelegatedAction);
   // Navigation Tabs
   document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -173,13 +239,15 @@ function initEvents() {
   });
 
   elements.btnMute.addEventListener('click', () => {
-    if (elements.audio.volume > 0) {
-      elements.audio.volume = 0;
+    const activeAudio = getActiveAudio();
+    if (activeAudio.volume > 0) {
+      state.lastVolume = activeAudio.volume;
+      setVolume(0);
       elements.volumeSlider.value = 0;
       elements.mVolumeSlider.value = 0;
       elements.btnMute.innerHTML = '<i class="fa-solid fa-volume-xmark"></i>';
     } else {
-      setVolume(state.volume || 1);
+      setVolume(state.lastVolume || 1);
     }
   });
 
@@ -215,8 +283,25 @@ function initEvents() {
   // Copy Live URL Button
   const copyBtn = document.getElementById('copy-live-url');
   if (copyBtn) {
-    copyBtn.addEventListener('click', () => {
-      navigator.clipboard.writeText('https://music.jomtek.my');
+    copyBtn.addEventListener('click', async () => {
+      const liveUrl = window.location.origin;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(liveUrl);
+        } else {
+          const fallback = document.createElement('textarea');
+          fallback.value = liveUrl;
+          fallback.style.position = 'fixed';
+          fallback.style.opacity = '0';
+          document.body.appendChild(fallback);
+          fallback.select();
+          if (!document.execCommand('copy')) throw new Error('Clipboard unavailable');
+          fallback.remove();
+        }
+      } catch (_error) {
+        await showAppAlert('Pautan tidak dapat disalin pada browser ini.', 'Salinan gagal', 'warning');
+        return;
+      }
       const label = copyBtn.querySelector('.btn-label');
       if (label) {
         const originalText = label.textContent;
@@ -230,15 +315,35 @@ function initEvents() {
   initUploadHandlers();
 }
 
+function handleDelegatedAction(event) {
+  const actionElement = event.target.closest('[data-action]');
+  if (actionElement) {
+    event.stopPropagation();
+    const { action, songId, playlistId } = actionElement.dataset;
+    if (action === 'favorite') toggleFavorite(songId);
+    if (action === 'add-playlist') showAddPlaylistModal(songId);
+    if (action === 'delete-song') deleteSongFromLibrary(songId);
+    if (action === 'remove-playlist-song') removeSongFromPlaylist(songId);
+    if (action === 'add-playlist-item') addSongToPlaylist(playlistId);
+    if (action === 'select-song') toggleSongSelection(songId, actionElement.checked);
+    if (action === 'bulk-song' && !actionElement.classList.contains('disabled')) toggleBulkSongItem(songId);
+    return;
+  }
+  const songCard = event.target.closest('.song-card[data-song-id]');
+  if (songCard && !event.target.closest('button, input, a')) {
+    if (state.selectionMode) toggleSongSelection(songCard.dataset.songId);
+    else playSpecificSong(songCard.dataset.songId);
+  }
+}
+
 // Fetch Data from Server API
 async function fetchServerStatus() {
   try {
-    const res = await fetch('/api/status');
-    const data = await res.json();
+      const data = await apiFetch('/api/status');
     state.serverInfo = data;
     
     const hostnameEl = document.getElementById('info-hostname');
-    if (hostnameEl) hostnameEl.textContent = data.hostname;
+    if (hostnameEl) hostnameEl.textContent = 'Server aktif';
 
   } catch (e) {
     console.error('Error fetching server status:', e);
@@ -247,8 +352,7 @@ async function fetchServerStatus() {
 
 async function fetchSongs() {
   try {
-    const res = await fetch('/api/songs');
-    const songs = await res.json();
+    const songs = await apiFetch('/api/songs');
     state.songs = songs;
     state.filteredSongs = [...songs];
     state.selectedSongIds.forEach(id => {
@@ -270,8 +374,7 @@ async function fetchSongs() {
 
 async function fetchPlaylists() {
   try {
-    const res = await fetch('/api/playlists');
-    state.playlists = await res.json();
+    state.playlists = await apiFetch('/api/playlists');
     renderPlaylists();
   } catch (e) {
     console.error('Error fetching playlists:', e);
@@ -299,9 +402,9 @@ function renderSongList() {
     const isSelected = state.selectedSongIds.has(song.id);
 
     return `
-      <div class="song-card ${isCurrent ? 'playing' : ''} ${isSelected ? 'selected-for-delete' : ''}" data-index="${index}" onclick="${state.selectionMode ? `toggleSongSelection('${song.id}')` : `playSongIndex(${index})`}">
-        <div class="song-select-cell" onclick="event.stopPropagation()">
-          ${state.selectionMode ? `<input type="checkbox" aria-label="Pilih ${escapeHtml(song.title)}" ${isSelected ? 'checked' : ''} onchange="toggleSongSelection('${song.id}', this.checked)">` : ''}
+      <div class="song-card ${isCurrent ? 'playing' : ''} ${isSelected ? 'selected-for-delete' : ''}" data-index="${index}" data-song-id="${escapeHtml(song.id)}">
+        <div class="song-select-cell">
+          ${state.selectionMode ? `<input type="checkbox" data-action="select-song" data-song-id="${escapeHtml(song.id)}" aria-label="Pilih ${escapeHtml(song.title)}" ${isSelected ? 'checked' : ''}>` : ''}
         </div>
         <div class="song-num">
           ${isPlaying ? '<i class="fa-solid fa-chart-simple fa-beat" style="color:var(--spotify-green)"></i>' : (index + 1)}
@@ -313,13 +416,13 @@ function renderSongList() {
         </div>
         <div class="song-album">${escapeHtml(song.album || '—')}</div>
         <div class="song-duration">${durationStr}</div>
-        <button class="icon-btn-ghost" onclick="event.stopPropagation(); showAddPlaylistModal('${song.id}')" title="Tambah ke Playlist">
+        <button class="icon-btn-ghost" data-action="add-playlist" data-song-id="${escapeHtml(song.id)}" title="Tambah ke Playlist">
           <i class="fa-solid fa-plus"></i>
         </button>
-        <button class="icon-btn-ghost ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${song.id}')">
+        <button class="icon-btn-ghost ${isFav ? 'active' : ''}" data-action="favorite" data-song-id="${escapeHtml(song.id)}">
           <i class="${isFav ? 'fa-solid' : 'fa-regular'} fa-heart"></i>
         </button>
-        <button class="icon-btn-ghost" onclick="event.stopPropagation(); deleteSongFromLibrary('${song.id}')" title="Padam dari Laptop" style="color:var(--text-subdued);">
+        <button class="icon-btn-ghost" data-action="delete-song" data-song-id="${escapeHtml(song.id)}" title="Padam dari Laptop" style="color:var(--text-subdued);">
           <i class="fa-solid fa-trash-can"></i>
         </button>
         <span class="song-action-spacer" aria-hidden="true"></span>
@@ -388,13 +491,11 @@ window.deleteSelectedSongs = async function() {
   if (!await showAppConfirm(message, 'Padam lagu terpilih?', 'danger')) return;
 
   try {
-    const res = await fetch('/api/songs/bulk-delete', {
+    const data = await apiFetch('/api/songs/bulk-delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ songIds })
     });
-    const data = await res.json();
-    if (!res.ok && res.status !== 207) throw new Error(data.error || 'Delete failed');
 
     state.selectedSongIds.clear();
     state.selectionMode = false;
@@ -425,7 +526,7 @@ function renderFavoritesList() {
     const coverUrl = `/api/cover/${song.id}`;
 
     return `
-      <div class="song-card ${isCurrent ? 'playing' : ''}" onclick="playSpecificSong('${song.id}')">
+      <div class="song-card ${isCurrent ? 'playing' : ''}" data-song-id="${escapeHtml(song.id)}">
         <div class="song-select-cell" aria-hidden="true"></div>
         <div class="song-num">${index + 1}</div>
         <img class="song-cover" src="${coverUrl}" alt="Cover" onerror="this.src='default-cover.svg'">
@@ -435,13 +536,13 @@ function renderFavoritesList() {
         </div>
         <div class="song-album">${escapeHtml(song.album || '—')}</div>
         <div class="song-duration">${formatTime(song.duration)}</div>
-        <button class="icon-btn-ghost" onclick="event.stopPropagation(); showAddPlaylistModal('${song.id}')" title="Tambah ke Playlist">
+        <button class="icon-btn-ghost" data-action="add-playlist" data-song-id="${escapeHtml(song.id)}" title="Tambah ke Playlist">
           <i class="fa-solid fa-plus"></i>
         </button>
-        <button class="icon-btn-ghost active" onclick="event.stopPropagation(); toggleFavorite('${song.id}')">
+        <button class="icon-btn-ghost active" data-action="favorite" data-song-id="${escapeHtml(song.id)}">
           <i class="fa-solid fa-heart"></i>
         </button>
-        <button class="icon-btn-ghost" onclick="event.stopPropagation(); deleteSong('${song.id}')">
+        <button class="icon-btn-ghost" data-action="delete-song" data-song-id="${escapeHtml(song.id)}">
           <i class="fa-solid fa-trash-can"></i>
         </button>
         <span class="song-action-spacer" aria-hidden="true"></span>
@@ -452,7 +553,7 @@ function renderFavoritesList() {
 
 function renderPlaylists() {
   elements.playlistsGrid.innerHTML = state.playlists.map(pl => `
-    <div class="playlist-card" onclick="openPlaylist('${pl.id}')">
+      <div class="playlist-card" data-action="open-playlist" data-playlist-id="${escapeHtml(pl.id)}" role="button" tabindex="0">
       <img class="playlist-card-cover" src="default-cover.svg" alt="Playlist Cover">
       <button class="btn-circle-play" title="Buka Playlist"><i class="fa-solid fa-play"></i></button>
       <div class="playlist-card-title">${escapeHtml(pl.name)}</div>
@@ -469,7 +570,10 @@ function initAudioPool() {
     audio.preload = 'auto';
     audio.playsInline = true;
     audio.addEventListener('timeupdate', () => {
-      if (audio === state.activeAudio) updateProgress();
+      if (audio === state.activeAudio) {
+        updateProgress();
+        persistState();
+      }
     });
     audio.addEventListener('ended', () => {
       if (audio === state.activeAudio) onSongEnded();
@@ -531,17 +635,25 @@ function playSongIndex(index) {
 
   if (preparedAudio) {
     previousAudio.pause();
-    elements.audio = preparedAudio;
     state.activeAudio = preparedAudio;
-    elements.audio.volume = state.volume;
+    preparedAudio.volume = state.volume;
   } else {
-    elements.audio.volume = state.volume;
-    elements.audio.src = streamUrl;
-    state.activeAudio = elements.audio;
+    const activeAudio = getActiveAudio();
+    activeAudio.volume = state.volume;
+    activeAudio.src = streamUrl;
   }
 
-  const playback = elements.audio.play();
+  const activeAudio = getActiveAudio();
+  const playback = activeAudio.play();
   if (playback) playback.catch(error => console.warn('Audio playback could not start:', error));
+  if (state.lastSongId === song.id && state.lastPosition > 0) {
+    activeAudio.addEventListener('loadedmetadata', () => {
+      activeAudio.currentTime = Math.min(state.lastPosition, activeAudio.duration || state.lastPosition);
+      state.lastPosition = 0;
+    }, { once: true });
+  }
+  state.lastSongId = song.id;
+  persistState();
 
   // Update UI Elements
   elements.playerTitle.textContent = song.title;
@@ -571,10 +683,11 @@ function togglePlayPause() {
     return;
   }
 
-  if (elements.audio.paused) {
-    elements.audio.play();
+  const activeAudio = getActiveAudio();
+  if (activeAudio.paused) {
+    activeAudio.play();
   } else {
-    elements.audio.pause();
+    activeAudio.pause();
   }
 }
 
@@ -598,8 +711,9 @@ function playNext() {
 function playPrev() {
   if (state.filteredSongs.length === 0) return;
 
-  if (elements.audio.currentTime > 3) {
-    elements.audio.currentTime = 0;
+  const activeAudio = getActiveAudio();
+  if (activeAudio.currentTime > 3) {
+    activeAudio.currentTime = 0;
     return;
   }
 
@@ -610,8 +724,9 @@ function playPrev() {
 
 function onSongEnded() {
   if (state.isRepeat) {
-    elements.audio.currentTime = 0;
-    elements.audio.play();
+    const activeAudio = getActiveAudio();
+    activeAudio.currentTime = 0;
+    activeAudio.play();
   } else {
     playNext();
   }
@@ -619,11 +734,13 @@ function onSongEnded() {
 
 function toggleShuffle() {
   state.isShuffle = !state.isShuffle;
+  persistState();
   updateControlButtons();
 }
 
 function toggleRepeat() {
   state.isRepeat = !state.isRepeat;
+  persistState();
   updateControlButtons();
 }
 
@@ -635,19 +752,21 @@ function updateControlButtons() {
 }
 
 function setVolume(val) {
-  state.volume = val;
-  elements.audio.volume = val;
-  state.audioPool.forEach(audio => { audio.volume = val; });
-  elements.volumeSlider.value = val;
-  elements.mVolumeSlider.value = val;
-  elements.btnMute.innerHTML = val === 0 
+  state.volume = Math.min(1, Math.max(0, val));
+  state.lastVolume = state.volume || state.lastVolume || 1;
+  state.audioPool.forEach(audio => { audio.volume = state.volume; });
+  elements.volumeSlider.value = state.volume;
+  elements.mVolumeSlider.value = state.volume;
+  elements.btnMute.innerHTML = state.volume === 0
     ? '<i class="fa-solid fa-volume-xmark"></i>' 
-    : (val < 0.5 ? '<i class="fa-solid fa-volume-low"></i>' : '<i class="fa-solid fa-volume-high"></i>');
+    : (state.volume < 0.5 ? '<i class="fa-solid fa-volume-low"></i>' : '<i class="fa-solid fa-volume-high"></i>');
+  persistState();
 }
 
 function updateProgress() {
-  const curr = elements.audio.currentTime || 0;
-  const dur = elements.audio.duration || 0;
+  const activeAudio = getActiveAudio();
+  const curr = activeAudio.currentTime || 0;
+  const dur = activeAudio.duration || 0;
   const pct = dur > 0 ? (curr / dur) * 100 : 0;
 
   elements.progressFill.style.width = `${pct}%`;
@@ -663,12 +782,13 @@ function updateProgress() {
 }
 
 function handleSeek(e) {
-  if (!elements.audio.duration) return;
+  const activeAudio = getActiveAudio();
+  if (!activeAudio.duration) return;
   const rect = e.currentTarget.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
   const width = rect.width;
   const pct = clickX / width;
-  elements.audio.currentTime = pct * elements.audio.duration;
+  activeAudio.currentTime = pct * activeAudio.duration;
 }
 
 // MediaSession API Integration (For Lock Screen Controls on Android/iOS/Bluetooth)
@@ -683,15 +803,16 @@ function setupMediaSession(song) {
       ]
     });
 
-    navigator.mediaSession.setActionHandler('play', () => elements.audio.play());
-    navigator.mediaSession.setActionHandler('pause', () => elements.audio.pause());
+    navigator.mediaSession.setActionHandler('play', () => getActiveAudio().play());
+    navigator.mediaSession.setActionHandler('pause', () => getActiveAudio().pause());
     navigator.mediaSession.setActionHandler('previoustrack', playPrev);
     navigator.mediaSession.setActionHandler('nexttrack', playNext);
     navigator.mediaSession.setActionHandler('seekto', (details) => {
-      if (details.fastSeek && ('fastSeek' in elements.audio)) {
-        elements.audio.fastSeek(details.seekTime);
+      const activeAudio = getActiveAudio();
+      if (details.fastSeek && ('fastSeek' in activeAudio)) {
+        activeAudio.fastSeek(details.seekTime);
       } else {
-        elements.audio.currentTime = details.seekTime;
+        activeAudio.currentTime = details.seekTime;
       }
     });
   }
@@ -734,7 +855,7 @@ function initVisualizer() {
   }
 }
 
-function toggleVisualizer(sourceButton) {
+function toggleVisualizer(_sourceButton) {
   const visualizerStatus = document.getElementById('visualizer-status');
   if (state.audioCtx) {
     state.visualizerEnabled = !state.visualizerEnabled;
@@ -817,12 +938,11 @@ function drawVisualizer() {
 // Favorites & Song Deletion
 async function toggleFavorite(songId) {
   try {
-    const res = await fetch('/api/favorites/toggle', {
+    const data = await apiFetch('/api/favorites/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ songId })
     });
-    const data = await res.json();
     state.favorites = data.favorites;
 
     updateFavIcon();
@@ -847,9 +967,7 @@ async function deleteSong(songId) {
   if (!await showAppConfirm('Adakah anda pasti mahu memadam lagu ini daripada laptop server?', 'Padam lagu ini?', 'danger')) return;
 
   try {
-    const res = await fetch(`/api/songs/${encodeURIComponent(songId)}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Delete failed');
+    const data = await apiFetch(`/api/songs/${encodeURIComponent(songId)}`, { method: 'DELETE' });
     await fetchSongs();
     await fetchPlaylists();
     await showAppAlert(data.message || 'Lagu berjaya dipadam.', 'Lagu dipadam');
@@ -957,6 +1075,14 @@ function uploadSingleFile(file, progressElement, statusElement) {
     formData.append('songs', file);
 
     xhr.open('POST', '/api/upload');
+    if (!apiKey) {
+      const enteredKey = window.prompt('Masukkan API key SonicStream untuk upload:');
+      if (enteredKey) {
+        apiKey = enteredKey.trim();
+        window.localStorage.setItem('sonicstream-api-key', apiKey);
+      }
+    }
+    if (apiKey) xhr.setRequestHeader('X-API-Key', apiKey);
     xhr.upload.addEventListener('progress', event => {
       if (!event.lengthComputable) return;
       progressElement.style.width = `${Math.round((event.loaded / event.total) * 100)}%`;
@@ -1002,6 +1128,7 @@ function sortSongs(type) {
 // Navigation & Modals
 function switchTab(tabId) {
   state.activeTab = tabId;
+  persistState();
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.getAttribute('data-tab') === tabId);
   });
@@ -1135,7 +1262,7 @@ function renderPlaylistSongs(pl) {
     const coverUrl = `/api/cover/${song.id}`;
     
     return `
-      <div class="song-card ${isCurrent ? 'playing' : ''}" onclick="playSpecificSong('${song.id}')">
+      <div class="song-card ${isCurrent ? 'playing' : ''}" data-song-id="${escapeHtml(song.id)}">
         <div class="song-select-cell" aria-hidden="true"></div>
         <div class="song-num">${index + 1}</div>
         <img class="song-cover" src="${coverUrl}" alt="Cover" onerror="this.src='default-cover.svg'">
@@ -1145,7 +1272,7 @@ function renderPlaylistSongs(pl) {
         </div>
         <div class="song-album">${escapeHtml(song.album || '—')}</div>
         <div class="song-duration">${formatTime(song.duration)}</div>
-        <button class="icon-btn-ghost" onclick="event.stopPropagation(); removeSongFromPlaylist('${song.id}')" title="Buang dari Playlist">
+        <button class="icon-btn-ghost" data-action="remove-playlist-song" data-song-id="${escapeHtml(song.id)}" title="Buang dari Playlist">
           <i class="fa-solid fa-minus"></i>
         </button>
         <span class="song-action-spacer" aria-hidden="true"></span>
@@ -1185,13 +1312,11 @@ createPlaylistForm.addEventListener('submit', async event => {
   const submitButton = createPlaylistForm.querySelector('[type="submit"]');
   submitButton.disabled = true;
   try {
-    const res = await fetch('/api/playlists', {
+    await apiFetch('/api/playlists', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Playlist creation failed');
     closeCreatePlaylistModal();
     await fetchPlaylists();
   } catch (error) {
@@ -1214,7 +1339,7 @@ window.showAddPlaylistModal = function(songId) {
     list.innerHTML = `<p style="color:var(--text-subdued); font-size:13px; text-align:center; padding:20px;">Anda belum mempunyai sebarang Playlist.</p>`;
   } else {
     list.innerHTML = state.playlists.map(pl => `
-      <div class="bulk-song-item" onclick="addSongToPlaylist('${pl.id}')" style="justify-content: space-between;">
+      <div class="bulk-song-item" data-action="add-playlist-item" data-playlist-id="${escapeHtml(pl.id)}" style="justify-content: space-between;">
         <div style="display:flex; align-items:center; gap:12px;">
           <img src="default-cover.svg" style="width:38px; height:38px; border-radius:6px;">
           <div style="display:flex; flex-direction:column;">
@@ -1233,7 +1358,7 @@ window.showAddPlaylistModal = function(songId) {
 window.addSongToPlaylist = async function(playlistId) {
   if (!currentSongToAdd) return;
   try {
-    await fetch(`/api/playlists/${playlistId}/songs`, {
+    await apiFetch(`/api/playlists/${playlistId}/songs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ songId: currentSongToAdd })
@@ -1251,7 +1376,7 @@ window.removeSongFromPlaylist = async function(songId) {
   if (!state.currentPlaylistId) return;
   if (!await showAppConfirm('Buang lagu ini dari playlist?', 'Buang lagu?', 'warning')) return;
   try {
-    await fetch(`/api/playlists/${state.currentPlaylistId}/songs/${songId}`, {
+    await apiFetch(`/api/playlists/${state.currentPlaylistId}/songs/${songId}`, {
       method: 'DELETE'
     });
     await fetchPlaylists();
@@ -1266,9 +1391,7 @@ window.deleteSongFromLibrary = async function(songId) {
   const name = song ? song.title : 'lagu ini';
   if (!await showAppConfirm(`Adakah anda pasti untuk memadam "${name}" secara KEKAL daripada simpanan laptop?`, 'Padam lagu secara kekal?', 'danger')) return;
   try {
-    const res = await fetch(`/api/songs/${encodeURIComponent(songId)}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Delete failed');
+    const data = await apiFetch(`/api/songs/${encodeURIComponent(songId)}`, { method: 'DELETE' });
     await fetchSongs();
     await fetchPlaylists();
     await showAppAlert(data.message || 'Lagu berjaya dipadam!', 'Lagu dipadam');
@@ -1282,7 +1405,7 @@ document.getElementById('delete-playlist-btn').addEventListener('click', async (
   if (!state.currentPlaylistId) return;
   if (!await showAppConfirm('Padam playlist ini sepenuhnya?', 'Padam playlist?', 'danger')) return;
   try {
-    await fetch(`/api/playlists/${state.currentPlaylistId}`, {
+    await apiFetch(`/api/playlists/${state.currentPlaylistId}`, {
       method: 'DELETE'
     });
     await fetchPlaylists();
@@ -1346,7 +1469,7 @@ window.renderBulkSongs = function() {
     
     return `
       <div class="bulk-song-item ${isAdded ? 'disabled' : (isChecked ? 'selected' : '')}" 
-           onclick="${isAdded ? '' : `toggleBulkSongItem('${song.id}')`}">
+           data-action="bulk-song" data-song-id="${escapeHtml(song.id)}">
         <img class="bulk-song-cover" src="${coverUrl}" alt="Cover" onerror="this.src='default-cover.svg'">
         <div class="bulk-song-info">
           <div class="bulk-song-title">${escapeHtml(song.title)}</div>
@@ -1412,7 +1535,7 @@ window.submitBulkAdd = async function() {
   }
   
   try {
-    await fetch(`/api/playlists/${state.currentPlaylistId}/songs`, {
+    await apiFetch(`/api/playlists/${state.currentPlaylistId}/songs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ songIds: Array.from(bulkSelectedSongs) })

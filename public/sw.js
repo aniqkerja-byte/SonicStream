@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sonicstream-cache-v25';
+const CACHE_NAME = 'sonicstream-cache-v26';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -13,8 +13,15 @@ const ASSETS_TO_CACHE = [
 // Install Event
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(ASSETS_TO_CACHE);
+    caches.open(CACHE_NAME).then(async cache => {
+      await Promise.all(ASSETS_TO_CACHE.map(async asset => {
+        try {
+          const response = await fetch(asset, { cache: 'no-cache' });
+          if (response.ok || response.type === 'opaque') await cache.put(asset, response);
+        } catch (error) {
+          console.warn('Unable to cache asset:', asset, error);
+        }
+      }));
     })
   );
   self.skipWaiting();
@@ -37,17 +44,19 @@ self.addEventListener('fetch', event => {
   // Ignore API requests and media streaming requests
   if (event.request.url.includes('/api/')) return;
   
-  event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      return cachedResponse || fetch(event.request).then(fetchResponse => {
-        return caches.open(CACHE_NAME).then(cache => {
-          // Cache dynamic requests like fonts
-          if (!event.request.url.includes('chrome-extension')) {
-            cache.put(event.request, fetchResponse.clone());
-          }
-          return fetchResponse;
-        });
-      });
-    })
-  );
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.pathname === '/' || requestUrl.pathname.endsWith('/index.html')) {
+    event.respondWith(fetch(event.request, { cache: 'no-store' }).catch(() => caches.match(event.request)));
+    return;
+  }
+
+  event.respondWith(caches.match(event.request).then(cachedResponse => {
+    if (cachedResponse) return cachedResponse;
+    return fetch(event.request).then(fetchResponse => {
+      if (fetchResponse.ok && event.request.method === 'GET' && !fetchResponse.type.includes('opaque')) {
+        event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put(event.request, fetchResponse.clone())));
+      }
+      return fetchResponse;
+    });
+  }));
 });
