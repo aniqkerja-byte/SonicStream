@@ -1,9 +1,9 @@
-const CACHE_NAME = 'sonicstream-cache-v22';
+const CACHE_NAME = 'sonicstream-cache-v23';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/style.css?v=8.8',
-  '/app.js?v=8.8',
+  '/style.css?v=8.9',
+  '/app.js?v=8.9',
   '/default-cover.svg',
   '/icon.png',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',

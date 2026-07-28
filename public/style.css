@@ -577,9 +577,9 @@ body {
 
 .track-table-header {
   display: grid;
-  grid-template-columns: 28px 40px 48px 1fr 160px 80px 40px 40px;
+  grid-template-columns: 28px 48px minmax(0, 1fr) 160px 70px repeat(4, 40px);
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 8px 16px;
   color: var(--text-subdued);
   font-size: 12px;
@@ -591,9 +591,10 @@ body {
 }
 
 .song-card {
-  display: flex;
+  display: grid;
+  grid-template-columns: 28px 48px minmax(0, 1fr) 160px 70px repeat(4, 40px);
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 8px 16px;
   background: transparent;
   border-radius: var(--radius-subtle);
@@ -644,26 +645,27 @@ body {
   cursor: not-allowed;
 }
 
-.song-card > * {
-  flex-shrink: 0;
-}
-
 .song-card .song-num {
-  width: 24px;
+  width: auto;
   text-align: center;
 }
 
 .song-card .song-details {
-  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .song-card .song-album {
-  width: 160px;
+  width: auto;
 }
 
 .song-card .song-duration {
-  width: 80px;
+  width: auto;
   text-align: center;
+}
+
+.track-table-header:has(#song-select-header:not([hidden])),
+.song-list:has(.song-select-cell) .song-card {
+  grid-template-columns: 28px 28px 48px minmax(0, 1fr) 160px 70px repeat(4, 40px);
 }
 
 .song-card:hover {
@@ -1694,8 +1696,13 @@ body {
   }
 
   .song-card {
-    gap: 10px;
+    grid-template-columns: 44px minmax(0, 1fr) repeat(4, 32px);
+    gap: 8px;
     padding: 8px 10px;
+  }
+
+  .song-list:has(.song-select-cell) .song-card {
+    grid-template-columns: 20px 44px minmax(0, 1fr) repeat(4, 32px);
   }
 
   .song-num, .song-album, .song-duration {
@@ -1705,6 +1712,13 @@ body {
   .song-select-cell {
     display: flex !important;
     width: 20px;
+  }
+
+  .song-card .icon-btn-ghost {
+    width: 32px;
+    height: 32px;
+    padding: 5px;
+    font-size: 14px;
   }
 
   .song-cover {
