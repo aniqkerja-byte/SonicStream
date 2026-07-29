@@ -23,7 +23,8 @@ const state = {
   audioPool: [],
   activeAudio: null,
   preloadTimer: null,
-  lastVolume: 1
+  lastVolume: 1,
+  playRequestId: 0
 };
 
 const STORAGE_KEY = 'sonicstream-state-v1';
@@ -647,6 +648,36 @@ function preloadNextSong() {
   preloadAudio.load();
 }
 
+function stopAudio(audio) {
+  if (!audio) return;
+  audio.pause();
+  audio.removeAttribute('src');
+  audio.load();
+}
+
+function playActiveAudio(audio, requestId) {
+  if (!audio || requestId !== state.playRequestId) return;
+  const start = () => {
+    if (requestId !== state.playRequestId || audio !== state.activeAudio) return;
+    const playback = audio.play();
+    if (playback) {
+      playback.catch(error => {
+        // A new song selection or pause can legitimately cancel a pending play().
+        if (error.name !== 'AbortError') console.warn('Audio playback could not start:', error);
+      });
+    }
+  };
+
+  if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+    start();
+  } else {
+    audio.addEventListener('canplay', start, { once: true });
+    audio.addEventListener('error', () => {
+      if (requestId === state.playRequestId) console.warn('Audio failed to load:', audio.error?.message || 'unknown media error');
+    }, { once: true });
+  }
+}
+
 function schedulePreloadNextSong(isReady = false) {
   clearTimeout(state.preloadTimer);
   const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
@@ -660,6 +691,7 @@ function schedulePreloadNextSong(isReady = false) {
 function playSongIndex(index) {
   if (index < 0 || index >= state.filteredSongs.length) return;
 
+  const requestId = ++state.playRequestId;
   state.currentIndex = index;
   state.currentSong = state.filteredSongs[index];
 
@@ -668,22 +700,23 @@ function playSongIndex(index) {
   const coverUrl = `/api/cover/${song.id}`;
 
   const streamAbsoluteUrl = new URL(streamUrl, window.location.href).href;
-  const preparedAudio = state.audioPool.find(audio => audio !== state.activeAudio && audio.src === streamAbsoluteUrl);
+  const preparedAudio = state.audioPool.find(audio => audio !== state.activeAudio && audio.src === streamAbsoluteUrl && audio.readyState >= HTMLMediaElement.HAVE_METADATA);
   const previousAudio = state.activeAudio;
 
   if (preparedAudio) {
-    previousAudio.pause();
+    stopAudio(previousAudio);
     state.activeAudio = preparedAudio;
     preparedAudio.volume = state.volume;
   } else {
     const activeAudio = getActiveAudio();
+    if (activeAudio.src && activeAudio.src !== streamAbsoluteUrl) stopAudio(activeAudio);
     activeAudio.volume = state.volume;
     activeAudio.src = streamUrl;
+    activeAudio.load();
   }
 
   const activeAudio = getActiveAudio();
-  const playback = activeAudio.play();
-  if (playback) playback.catch(error => console.warn('Audio playback could not start:', error));
+  playActiveAudio(activeAudio, requestId);
   if (state.lastSongId === song.id && state.lastPosition > 0) {
     activeAudio.addEventListener('loadedmetadata', () => {
       activeAudio.currentTime = Math.min(state.lastPosition, activeAudio.duration || state.lastPosition);
@@ -723,8 +756,10 @@ function togglePlayPause() {
 
   const activeAudio = getActiveAudio();
   if (activeAudio.paused) {
-    activeAudio.play();
+    const requestId = state.playRequestId;
+    playActiveAudio(activeAudio, requestId);
   } else {
+    state.playRequestId++;
     activeAudio.pause();
   }
 }
@@ -764,7 +799,7 @@ function onSongEnded() {
   if (state.isRepeat) {
     const activeAudio = getActiveAudio();
     activeAudio.currentTime = 0;
-    activeAudio.play();
+    playActiveAudio(activeAudio, state.playRequestId);
   } else {
     playNext();
   }
