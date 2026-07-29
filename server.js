@@ -31,9 +31,11 @@ const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const DB_BACKUP_FILE = `${DB_FILE}.bak`;
+const COVERS_DIR = path.join(DATA_DIR, 'covers');
 
 if (!fs.existsSync(MUSIC_DIR)) fs.mkdirSync(MUSIC_DIR, { recursive: true });
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(COVERS_DIR)) fs.mkdirSync(COVERS_DIR, { recursive: true });
 
 // Middleware
 app.disable('x-powered-by');
@@ -199,6 +201,50 @@ async function scanMusicFiles() {
   }
 }
 
+function getCoverExtension(format) {
+  const extensions = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/gif': '.gif'
+  };
+  return extensions[format] || '.bin';
+}
+
+function getCoverCacheName(fileId, cacheKey, format) {
+  const version = crypto.createHash('sha1').update(cacheKey).digest('hex').slice(0, 12);
+  return `${fileId}-${version}${getCoverExtension(format)}`;
+}
+
+function getSafeCoverPath(coverFile) {
+  if (!coverFile || path.basename(coverFile) !== coverFile) return null;
+  const coverPath = path.resolve(COVERS_DIR, coverFile);
+  return coverPath.startsWith(`${path.resolve(COVERS_DIR)}${path.sep}`) ? coverPath : null;
+}
+
+async function removeCachedCovers(fileId, keepFile = null) {
+  const files = await fs.promises.readdir(COVERS_DIR).catch(() => []);
+  await Promise.all(files
+    .filter(file => file.startsWith(`${fileId}-`) && file !== keepFile)
+    .map(file => fs.promises.unlink(path.join(COVERS_DIR, file)).catch(() => {})));
+}
+
+async function cacheArtwork(fileId, cacheKey, picture) {
+  if (!picture?.data || !picture.format) {
+    await removeCachedCovers(fileId);
+    return { hasPicture: false, coverFile: null, coverMime: null };
+  }
+
+  const imageBuffer = Buffer.isBuffer(picture.data) ? picture.data : Buffer.from(picture.data);
+  const coverFile = getCoverCacheName(fileId, cacheKey, picture.format);
+  const coverPath = path.join(COVERS_DIR, coverFile);
+  const temporaryPath = `${coverPath}.${process.pid}.tmp`;
+  await fs.promises.writeFile(temporaryPath, imageBuffer);
+  await fs.promises.rename(temporaryPath, coverPath);
+  await removeCachedCovers(fileId, coverFile);
+  return { hasPicture: true, coverFile, coverMime: picture.format };
+}
+
 async function scanMusicFilesInternal() {
   console.log('🔄 Scanning music directory:', MUSIC_DIR);
   try {
@@ -214,7 +260,9 @@ async function scanMusicFilesInternal() {
 
       const cacheKey = `${stat.size}:${stat.mtimeMs}`;
       const cached = metadataCache.get(file);
-      if (cached && cached.cacheKey === cacheKey) {
+      const cachedCoverPath = cached?.song?.coverFile ? getSafeCoverPath(cached.song.coverFile) : null;
+      const cachedCoverAvailable = !cached?.song?.hasPicture || (cachedCoverPath && fs.existsSync(cachedCoverPath));
+      if (cached && cached.cacheKey === cacheKey && cachedCoverAvailable) {
         songList.push({ ...cached.song, filename: file, id: fileId, size: stat.size, addedAt: stat.birthtime || stat.mtime });
         continue;
       }
@@ -225,7 +273,7 @@ async function scanMusicFilesInternal() {
       let duration = 0;
       let year = null;
       let genre = null;
-      let hasPicture = false;
+      let picture = null;
 
       try {
         const metadata = await musicMetadata.parseFile(filePath, { duration: true });
@@ -235,12 +283,12 @@ async function scanMusicFilesInternal() {
         if (metadata.common.year) year = metadata.common.year;
         if (metadata.common.genre && metadata.common.genre.length > 0) genre = metadata.common.genre[0];
         if (metadata.format.duration) duration = metadata.format.duration;
-        if (metadata.common.picture && metadata.common.picture.length > 0) {
-          hasPicture = true;
-        }
+        picture = metadata.common.picture?.[0] || null;
       } catch (_error) {
         // use fallback file stats
       }
+
+      const artwork = await cacheArtwork(fileId, cacheKey, picture);
 
       const song = {
         id: fileId,
@@ -253,7 +301,9 @@ async function scanMusicFilesInternal() {
         genre,
         size: stat.size,
         addedAt: stat.birthtime || stat.mtime,
-        hasPicture
+        hasPicture: artwork.hasPicture,
+        coverFile: artwork.coverFile,
+        coverMime: artwork.coverMime
       };
       metadataCache.set(file, { cacheKey, song });
       songList.push(song);
@@ -334,27 +384,41 @@ app.get('/api/songs', readRateLimit, (req, res) => {
   res.json(songsWithFav);
 });
 
-// Get song metadata cover image
+// Get cached song cover image
 app.get('/api/cover/:id', readRateLimit, async (req, res, _next) => {
   const song = db.songs.find(s => s.id === req.params.id);
   if (!song) return res.status(404).send('Song not found');
 
-  const filePath = path.join(MUSIC_DIR, song.filename);
-  try {
-    const metadata = await musicMetadata.parseFile(filePath);
-    if (metadata.common.picture && metadata.common.picture.length > 0) {
-      const pic = metadata.common.picture[0];
-      const imageBuffer = Buffer.isBuffer(pic.data) ? pic.data : Buffer.from(pic.data);
-      res.type(pic.format || 'application/octet-stream');
-      res.set('Content-Length', imageBuffer.length);
-      return res.end(imageBuffer);
-    }
-  } catch (_error) {
-    // fallback below
+  const coverPath = getSafeCoverPath(song.coverFile);
+  if (!coverPath || !fs.existsSync(coverPath)) {
+    return res.sendFile(path.join(PUBLIC_DIR, 'default-cover.svg'), {
+      headers: {
+        'Cache-Control': 'public, max-age=3600',
+        'X-Content-Type-Options': 'nosniff'
+      }
+    });
   }
 
-  // Fallback to default cover generator SVG
-  res.sendFile(path.join(PUBLIC_DIR, 'default-cover.svg'));
+  try {
+    const stat = await fs.promises.stat(coverPath);
+    const etag = `"${stat.size}-${Math.floor(stat.mtimeMs)}"`;
+    const lastModified = stat.mtime.toUTCString();
+    res.set({
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'CDN-Cache-Control': 'public, max-age=31536000, immutable',
+      'Content-Length': stat.size,
+      'Content-Type': song.coverMime || 'application/octet-stream',
+      'Last-Modified': lastModified,
+      ETag: etag,
+      'Access-Control-Expose-Headers': 'Cache-Control, Content-Length, Content-Type, ETag, Last-Modified',
+      'X-Content-Type-Options': 'nosniff'
+    });
+    if (req.headers['if-none-match'] === etag) return res.status(304).end();
+    return res.sendFile(coverPath);
+  } catch (error) {
+    console.error(`Failed to serve cover for ${song.filename}:`, error);
+    return res.sendFile(path.join(PUBLIC_DIR, 'default-cover.svg'));
+  }
 });
 
 // Stream audio file with HTTP Range support

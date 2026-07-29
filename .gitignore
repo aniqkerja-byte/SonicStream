@@ -3,6 +3,8 @@ node_modules/
 *.log
 data/db.json
 data/db.json.bak
+data/covers/*
+!data/covers/.gitkeep
 *.tmp
 *.credentials.json
 credentials.json
